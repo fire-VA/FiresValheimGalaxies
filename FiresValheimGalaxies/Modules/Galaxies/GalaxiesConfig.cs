@@ -1,0 +1,508 @@
+using BepInEx.Configuration;
+
+namespace VerdantsAscent.Galaxies
+{
+    // All config for the moon-driven tide + current system. Self-contained so
+    // it doesn't bloat the shared ConfigManager. Bind() is called once from the
+    // plugin Awake with the BepInEx ConfigFile and the live ConfigSync; every
+    // entry is registered for sync, and the plugin's single master lock
+    // (configServerAuthority) makes them server-authoritative when enabled.
+    internal static class GalaxiesConfig
+    {
+        private const string General   = "Galaxies - General";
+        private const string Ships     = "Galaxies - Ships";
+        private const string Wind      = "Galaxies - Wind";
+        private const string Rivers    = "Galaxies - Rivers";
+        private const string RiverScan = "Galaxies - Rivers (Detection)";
+        private const string Ocean     = "Galaxies - Open Ocean";
+        private const string Tides     = "Galaxies - Tides";
+        private const string TideRange = "Galaxies - Tides (Range)";
+        private const string TideCycle = "Galaxies - Tides (Cycle)";
+        private const string Tidal     = "Galaxies - Tidal Currents";
+        private const string Mouths    = "Galaxies - River Mouth Detection";
+        private const string Diving    = "Galaxies - Diving";
+        private const string Moon      = "Galaxies - Moon";
+
+        public static ConfigEntry<bool> EnableMod;
+
+        public static ConfigEntry<bool>  DivingEnabled;
+        public static ConfigEntry<float> DivingMaxSwimSpeed;
+        public static ConfigEntry<float> DivingStaminaDrain;
+        public static ConfigEntry<bool>  CreatureDivingEnabled;
+        public static ConfigEntry<float> CreatureDiveMaxDepth;
+        public static ConfigEntry<float> CreatureDiveSpeed;
+
+        public static ConfigEntry<bool>  MoonEnabled;
+        public static ConfigEntry<float> MoonDistance;
+        public static ConfigEntry<float> MoonSizeScale;
+        public static ConfigEntry<float> MoonSynodicDays;
+        public static ConfigEntry<float> MoonOrbitInclination;
+        public static ConfigEntry<float> MoonPhaseOffset;
+        public static ConfigEntry<float> MoonSunBrightness;
+        public static ConfigEntry<float> MoonDarkSide;
+        public static ConfigEntry<float> MoonEmission;
+        public static ConfigEntry<float> MoonTerminatorSoft;
+        public static ConfigEntry<float> MoonSaturation;
+
+        public const int OrbitalSlots = 4;
+        public static ConfigEntry<bool>[]   OrbitalEnabled    = new ConfigEntry<bool>[OrbitalSlots];
+        public static ConfigEntry<string>[] OrbitalPrefab     = new ConfigEntry<string>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalWidth      = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalApex       = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalNadir      = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalPeriod     = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalEggRatio   = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalWobbleAmp  = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalWobbleSec  = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalPrecession = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalPhase      = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalSpin       = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalScale      = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalTilt       = new ConfigEntry<float>[OrbitalSlots];
+        public static ConfigEntry<float>[]  OrbitalYaw        = new ConfigEntry<float>[OrbitalSlots];
+        private static readonly string[] OrbitalSections =
+            { "Galaxies - Orbital A", "Galaxies - Orbital B", "Galaxies - Orbital C", "Galaxies - Orbital D" };
+
+        public static ConfigEntry<bool>  EnableShipCurrents;
+        public static ConfigEntry<float> ShipWaterHeightTolerance;
+        public static ConfigEntry<float> MaxCurrentSpeedContribution;
+        public static ConfigEntry<float> CurrentDirectionSmoothing;
+        public static ConfigEntry<bool>  EnablePlayerCurrents;
+        public static ConfigEntry<bool>  EnableCreatureCurrents;
+        public static ConfigEntry<float> CharacterCurrentScale;
+
+        public static ConfigEntry<float> WindBehindThreshold;
+        public static ConfigEntry<float> WindAgainstThreshold;
+        public static ConfigEntry<float> BadWindCurrentMultiplier;
+        public static ConfigEntry<float> AgainstCurrentDrag;
+        public static ConfigEntry<float> CrossCurrentDrag;
+
+        public static ConfigEntry<bool>  EnableRiverCurrents;
+        public static ConfigEntry<float> RiverCurrentMinStrength;
+        public static ConfigEntry<float> RiverCurrentMaxStrength;
+        public static ConfigEntry<float> RiverCacheCellSize;
+        public static ConfigEntry<float> RiverCacheLifetimeSeconds;
+        public static ConfigEntry<bool>  RiverBilinearBlend;
+        public static ConfigEntry<float> RiverScanRadius;
+        public static ConfigEntry<float> RiverMinDepth;
+        public static ConfigEntry<float> RiverMaxDepth;
+        public static ConfigEntry<float> RiverMinSlopeMagnitude;
+        public static ConfigEntry<float> RiverBankConfirmDepth;
+
+        public static ConfigEntry<bool>  EnableOceanCurrents;
+        public static ConfigEntry<float> OceanCurrentStrength;
+        public static ConfigEntry<float> OceanNoiseScale;
+        public static ConfigEntry<float> OceanNoiseSeed;
+
+        public static ConfigEntry<bool>  EnableTides;
+        public static ConfigEntry<bool>  EnableTideHeightApply;
+        public static ConfigEntry<float> NormalHighTideY;
+        public static ConfigEntry<float> NormalLowTideY;
+        public static ConfigEntry<float> SpringHighTideY;
+        public static ConfigEntry<float> SpringLowTideY;
+        public static ConfigEntry<float> BloodMoonHighTideY;
+        public static ConfigEntry<float> BloodMoonLowTideY;
+        public static ConfigEntry<float> TideCyclesPerOrbit;
+
+        public static ConfigEntry<bool>  EnableTidalCurrents;
+        public static ConfigEntry<float> OutgoingCurrentStrength;
+        public static ConfigEntry<float> IncomingCurrentStrength;
+        public static ConfigEntry<float> RiverMouthSwirlRadius;
+        public static ConfigEntry<float> RiverMouthSwirlStrength;
+
+        public static ConfigEntry<float> RiverMouthScanCellSize;
+        public static ConfigEntry<float> RiverMouthMaxBuildSeconds;
+
+        public static ConfigEntry<bool>  DebugVisualizeCurrents;
+        public static ConfigEntry<float> DebugCurrentsGridSpacing;
+        public static ConfigEntry<float> DebugCurrentsGridRadius;
+        public static ConfigEntry<float> DebugCurrentsArrowScale;
+        public static ConfigEntry<int>   DebugCurrentsStreamlineSteps;
+        public static ConfigEntry<bool>  DebugVisualizeOrbits;
+        public static ConfigEntry<int>   DebugOrbitsResolution;
+
+        public static void Bind(ConfigFile config, ConfigSync sync)
+        {
+            if (config == null) return;
+
+            EnableMod = config.Bind(General, "EnableMod", true,
+                "Master switch for the moon-driven tide and current system.");
+            Sync(sync, EnableMod);
+
+            EnableShipCurrents = config.Bind(Ships, "EnableShipCurrents", true,
+                "Apply current forces to ships.");
+            ShipWaterHeightTolerance = config.Bind(Ships, "ShipWaterHeightTolerance", 2.0f,
+                "Ship must be within this height of the water surface to receive current force.");
+            MaxCurrentSpeedContribution = config.Bind(Ships, "MaxCurrentSpeedContribution", 8f,
+                "Soft limit. Current force tapers as ship speed along the current approaches this.");
+            CurrentDirectionSmoothing = config.Bind(Ships, "CurrentDirectionSmoothing", 2.5f,
+                "How quickly a ship's current direction is smoothed toward new readings.");
+            EnablePlayerCurrents = config.Bind(Ships, "EnablePlayerCurrents", true,
+                "Apply current drift to the LOCAL PLAYER while in water (swimming or wading). "
+                + "Independent of ship drift and creature drift.");
+            EnableCreatureCurrents = config.Bind(Ships, "EnableCreatureCurrents", true,
+                "Apply current drift to non-player characters (creatures, mobs) while in water. "
+                + "Only the network-owner client applies the force to avoid multiplayer physics "
+                + "fights — non-owners see the result via ZDO sync.");
+            CharacterCurrentScale = config.Bind(Ships, "CharacterCurrentScale",
+                2.0f,
+                new ConfigDescription(
+                    "Multiplier on current strength when applied to ANY character (player or "
+                    + "creature). Treated as a drift velocity bias (m/s) added to the character's "
+                    + "swim/walk velocity each fixed step. Higher = stronger pull. Default 2.0 "
+                    + "feels clearly noticeable in default-strength currents.",
+                    new AcceptableValueRange<float>(0f, 8f)));
+            Sync(sync, EnableShipCurrents);
+            Sync(sync, ShipWaterHeightTolerance);
+            Sync(sync, MaxCurrentSpeedContribution);
+            Sync(sync, CurrentDirectionSmoothing);
+            Sync(sync, EnablePlayerCurrents);
+            Sync(sync, EnableCreatureCurrents);
+            Sync(sync, CharacterCurrentScale);
+
+            WindBehindThreshold = config.Bind(Wind, "WindBehindThreshold", 0.20f,
+                "Wind alignment above this means wind is helping the ship.");
+            WindAgainstThreshold = config.Bind(Wind, "WindAgainstThreshold", -0.25f,
+                "Wind alignment below this means wind is fighting the ship.");
+            BadWindCurrentMultiplier = config.Bind(Wind, "BadWindCurrentMultiplier", 1.35f,
+                "Current strength multiplier when wind is against the ship.");
+            AgainstCurrentDrag = config.Bind(Wind, "AgainstCurrentDrag", 0.85f,
+                "Extra drag when the ship is fighting both wind and current.");
+            CrossCurrentDrag = config.Bind(Wind, "CrossCurrentDrag", 0.25f,
+                "Mild drag when wind is bad and current is mostly sideways.");
+            Sync(sync, WindBehindThreshold);
+            Sync(sync, WindAgainstThreshold);
+            Sync(sync, BadWindCurrentMultiplier);
+            Sync(sync, AgainstCurrentDrag);
+            Sync(sync, CrossCurrentDrag);
+
+            EnableRiverCurrents = config.Bind(Rivers, "EnableRiverCurrents", true,
+                "Detect rivers from terrain slope and apply downhill current.");
+            RiverCurrentMinStrength = config.Bind(Rivers, "RiverCurrentMinStrength", 0.75f,
+                "Minimum river current force.");
+            RiverCurrentMaxStrength = config.Bind(Rivers, "RiverCurrentMaxStrength", 2.25f,
+                "Maximum river current force.");
+            RiverCacheCellSize = config.Bind(Rivers, "RiverCacheCellSize", 32f,
+                "Cache grid cell size for river decisions.");
+            RiverCacheLifetimeSeconds = config.Bind(Rivers, "RiverCacheLifetimeSeconds", 600f,
+                "Seconds before unused river cache cells are pruned.");
+            RiverBilinearBlend = config.Bind(Rivers, "RiverBilinearBlend", true,
+                "Blend the 4 nearest cells so flow does not step at cell boundaries.");
+            RiverScanRadius = config.Bind(RiverScan, "RiverScanRadius", 48f,
+                "Radius used to sample terrain slope. Larger reads channel tilt instead of bank-to-bank slope.");
+            RiverMinDepth = config.Bind(RiverScan, "RiverMinDepth", 0.25f,
+                "Minimum water depth at the cell center for river detection.");
+            RiverMaxDepth = config.Bind(RiverScan, "RiverMaxDepth", 5f,
+                "Maximum water depth at the cell center for river detection. Deeper falls back to ocean.");
+            RiverMinSlopeMagnitude = config.Bind(RiverScan, "RiverMinSlopeMagnitude", 0.02f,
+                "Minimum slope magnitude required to count as a river.");
+            RiverBankConfirmDepth = config.Bind(RiverScan, "RiverBankConfirmDepth", 0.1f,
+                "Bank-confirmation probe depth. Rejects sloping beaches that look like rivers.");
+            Sync(sync, EnableRiverCurrents);
+            Sync(sync, RiverCurrentMinStrength);
+            Sync(sync, RiverCurrentMaxStrength);
+            Sync(sync, RiverCacheCellSize);
+            Sync(sync, RiverCacheLifetimeSeconds);
+            Sync(sync, RiverBilinearBlend);
+            Sync(sync, RiverScanRadius);
+            Sync(sync, RiverMinDepth);
+            Sync(sync, RiverMaxDepth);
+            Sync(sync, RiverMinSlopeMagnitude);
+            Sync(sync, RiverBankConfirmDepth);
+
+            EnableOceanCurrents = config.Bind(Ocean, "EnableOceanCurrents", true,
+                "Apply the baseline open-ocean noise current when no river or tide current is active.");
+            OceanCurrentStrength = config.Bind(Ocean, "OceanCurrentStrength", 0.65f,
+                "Open-ocean current force.");
+            OceanNoiseScale = config.Bind(Ocean, "OceanNoiseScale", 1500f,
+                "World-space wavelength of the ocean current noise field. Larger = broader gyres.");
+            OceanNoiseSeed = config.Bind(Ocean, "OceanNoiseSeed", 1337f,
+                "Offset into the noise field. Change to reshape ocean currents.");
+            Sync(sync, EnableOceanCurrents);
+            Sync(sync, OceanCurrentStrength);
+            Sync(sync, OceanNoiseScale);
+            Sync(sync, OceanNoiseSeed);
+
+            EnableTides = config.Bind(Tides, "EnableTides", true,
+                "Master toggle for the tide system.");
+            EnableTideHeightApply = config.Bind(Tides, "EnableTideHeightApply", true,
+                "If false, tide height is calculated but not pushed to the water surface. For testing.");
+            NormalHighTideY = config.Bind(TideRange, "NormalHighTideY", 30f,
+                "Standard high tide water y. Matches vanilla so shoreline meshes line up.");
+            NormalLowTideY = config.Bind(TideRange, "NormalLowTideY", 28f,
+                "Standard low tide water y on a typical day.");
+            SpringHighTideY = config.Bind(TideRange, "SpringHighTideY", 30f,
+                "High tide y at full or new moon (spring tide).");
+            SpringLowTideY = config.Bind(TideRange, "SpringLowTideY", 25f,
+                "Low tide y at full or new moon. Exposes more shoreline.");
+            BloodMoonHighTideY = config.Bind(TideRange, "BloodMoonHighTideY", 32f,
+                "High tide y during a blood moon. Mildly exceeds the vanilla water plane.");
+            BloodMoonLowTideY = config.Bind(TideRange, "BloodMoonLowTideY", 24f,
+                "Low tide y during a blood moon. Maximum shoreline exposure.");
+            TideCyclesPerOrbit = config.Bind(TideCycle, "TideCyclesPerOrbit",
+                1f,
+                new ConfigDescription(
+                    "Number of high/low cycles per moon orbit (one orbit = one Valheim day, "
+                    + "auto-tracking any day-length mods via EnvMan.GetDayFraction). "
+                    + "1 = one high + one low per day; high tide lands at midnight when the "
+                    + "moon is at apex, low tide at noon. 2 = Earth-like two highs + two lows "
+                    + "per day (faster cycle, more dramatic on Valheim's ~30-minute day). "
+                    + "Values between are valid but unusual.",
+                    new AcceptableValueRange<float>(0.5f, 4f)));
+            Sync(sync, EnableTides);
+            Sync(sync, EnableTideHeightApply);
+            Sync(sync, NormalHighTideY);
+            Sync(sync, NormalLowTideY);
+            Sync(sync, SpringHighTideY);
+            Sync(sync, SpringLowTideY);
+            Sync(sync, BloodMoonHighTideY);
+            Sync(sync, BloodMoonLowTideY);
+            Sync(sync, TideCyclesPerOrbit);
+
+            EnableTidalCurrents = config.Bind(Tidal, "EnableTidalCurrents", true,
+                "Enable tide-driven ocean currents.");
+            OutgoingCurrentStrength = config.Bind(Tidal, "OutgoingCurrentStrength", 0.8f,
+                "Force when the tide is going out (water dropping).");
+            IncomingCurrentStrength = config.Bind(Tidal, "IncomingCurrentStrength", 0.8f,
+                "Force when the tide is coming in (water rising).");
+            RiverMouthSwirlRadius = config.Bind(Tidal, "RiverMouthSwirlRadius", 80f,
+                "Radius around each river mouth where tidal swirl applies.");
+            RiverMouthSwirlStrength = config.Bind(Tidal, "RiverMouthSwirlStrength", 1.2f,
+                "Strength multiplier on the rotational swirl at river mouths.");
+            Sync(sync, EnableTidalCurrents);
+            Sync(sync, OutgoingCurrentStrength);
+            Sync(sync, IncomingCurrentStrength);
+            Sync(sync, RiverMouthSwirlRadius);
+            Sync(sync, RiverMouthSwirlStrength);
+
+            RiverMouthScanCellSize = config.Bind(Mouths, "RiverMouthScanCellSize", 64f,
+                "Grid cell size for river-mouth detection.");
+            RiverMouthMaxBuildSeconds = config.Bind(Mouths, "RiverMouthMaxBuildSeconds", 8f,
+                "Maximum seconds the river-mouth scan may take on world load.");
+            Sync(sync, RiverMouthScanCellSize);
+            Sync(sync, RiverMouthMaxBuildSeconds);
+
+            const string Debug = "Galaxies - Debug Visualization";
+            DebugVisualizeCurrents = config.Bind(Debug, "VisualizeCurrents", false,
+                "Draw streamlines that follow the current flow at every grid point around the "
+                + "player. Each line is traced by walking N steps along the local current "
+                + "direction (so it curves through swirls), and segments are color-coded by "
+                + "strength: white = weak, yellow = medium, orange = moderate, red = strong. "
+                + "Client-only.");
+            DebugCurrentsGridSpacing = config.Bind(Debug, "CurrentsGridSpacing",
+                16f,
+                new ConfigDescription(
+                    "Spacing between streamline seed points in meters.",
+                    new AcceptableValueRange<float>(4f, 64f)));
+            DebugCurrentsGridRadius = config.Bind(Debug, "CurrentsGridRadius",
+                80f,
+                new ConfigDescription(
+                    "Radius around the player to sample the current field.",
+                    new AcceptableValueRange<float>(16f, 256f)));
+            DebugCurrentsArrowScale = config.Bind(Debug, "CurrentsArrowScale",
+                4f,
+                new ConfigDescription(
+                    "Length multiplier on each streamline step. Larger = longer lines that trace "
+                    + "further into the flow. Step length is also scaled by local current strength "
+                    + "so strong currents stretch the line and weak ones curl it tight.",
+                    new AcceptableValueRange<float>(0.5f, 20f)));
+            DebugCurrentsStreamlineSteps = config.Bind(Debug, "CurrentsStreamlineSteps",
+                12,
+                new ConfigDescription(
+                    "Number of segments per streamline. Higher = longer, smoother curves; lower = "
+                    + "shorter arrow-like marks. 1 reduces to a single arrow per seed.",
+                    new AcceptableValueRange<int>(1, 32)));
+            DebugVisualizeOrbits = config.Bind(Debug, "VisualizeOrbits", false,
+                "Trace the full orbital path of every active FiresOrbitals body in world space. "
+                + "Useful for adjusting orbit parameters and seeing the shape change live. "
+                + "Client-only. Reads FAT's FiresOrbitals; no-op if FAT is absent.");
+            DebugOrbitsResolution = config.Bind(Debug, "OrbitsResolution",
+                64,
+                new ConfigDescription(
+                    "How many segments make up each traced orbit ring.",
+                    new AcceptableValueRange<int>(16, 256)));
+
+            DivingEnabled = config.Bind(Diving, "DivingEnabled", true,
+                "Let the player dive and swim underwater. Hold CROUCH to descend, JUMP to rise, "
+                + "RUN to swim faster. Off = vanilla surface-only swimming.");
+            DivingMaxSwimSpeed = config.Bind(Diving, "MaxSwimSpeed", 3.0f,
+                new ConfigDescription("Peak swim speed when sprinting while swimming/diving. Vanilla base ~2.",
+                    new AcceptableValueRange<float>(2f, 6f)));
+            DivingStaminaDrain = config.Bind(Diving, "UnderwaterStaminaDrain", 0.5f,
+                new ConfigDescription("Stamina drain while diving as a multiple of the default swim drain. 0 = free diving.",
+                    new AcceptableValueRange<float>(0f, 2f)));
+            CreatureDivingEnabled = config.Bind(Diving, "CreatureDivingEnabled", true,
+                "Let AI creatures dive to follow a diving target instead of being stuck at the surface.");
+            CreatureDiveMaxDepth = config.Bind(Diving, "CreatureMaxDiveDepth", 30f,
+                new ConfigDescription("How far below the surface (m) a creature will sink chasing a goal.",
+                    new AcceptableValueRange<float>(2f, 100f)));
+            CreatureDiveSpeed = config.Bind(Diving, "CreatureDiveSpeed", 3f,
+                new ConfigDescription("How fast a creature descends/ascends (m/s) following its goal.",
+                    new AcceptableValueRange<float>(0.5f, 10f)));
+            Sync(sync, DivingEnabled);
+            Sync(sync, DivingMaxSwimSpeed);
+            Sync(sync, DivingStaminaDrain);
+            Sync(sync, CreatureDivingEnabled);
+            Sync(sync, CreatureDiveMaxDepth);
+            Sync(sync, CreatureDiveSpeed);
+
+            ApplyDiving();
+            DivingEnabled.SettingChanged         += (_, __) => ApplyDiving();
+            DivingMaxSwimSpeed.SettingChanged    += (_, __) => ApplyDiving();
+            DivingStaminaDrain.SettingChanged    += (_, __) => ApplyDiving();
+            CreatureDivingEnabled.SettingChanged += (_, __) => ApplyDiving();
+            CreatureDiveMaxDepth.SettingChanged  += (_, __) => ApplyDiving();
+            CreatureDiveSpeed.SettingChanged     += (_, __) => ApplyDiving();
+
+            MoonEnabled = config.Bind(Moon, "Enabled", true,
+                "Render the 3D moon with physical phases (loaded from the firesgalaxies bundle). "
+                + "The moon drives the tides.");
+            MoonDistance = config.Bind(Moon, "Distance", 4500f,
+                new ConfigDescription("Sky distance of the moon (m).", new AcceptableValueRange<float>(500f, 12000f)));
+            MoonSizeScale = config.Bind(Moon, "SizeScale", 1.0f,
+                new ConfigDescription("Visual size multiplier.", new AcceptableValueRange<float>(0.2f, 5f)));
+            MoonSynodicDays = config.Bind(Moon, "SynodicDays", 30f,
+                new ConfigDescription("Game days per full lunar cycle. Drives BOTH the moon phase and the tides.",
+                    new AcceptableValueRange<float>(1f, 120f)));
+            MoonOrbitInclination = config.Bind(Moon, "OrbitInclinationDeg", 8f,
+                new ConfigDescription("Tilt of the moon's orbital plane vs the ecliptic.", new AcceptableValueRange<float>(0f, 45f)));
+            MoonPhaseOffset = config.Bind(Moon, "PhaseOffsetDays", 0f,
+                new ConfigDescription("Shift the starting phase (days). Drives both moon + tides.", new AcceptableValueRange<float>(0f, 120f)));
+            MoonSunBrightness = config.Bind(Moon, "SunBrightness", 1.4f,
+                new ConfigDescription("Lit-side brightness.", new AcceptableValueRange<float>(0f, 4f)));
+            MoonDarkSide = config.Bind(Moon, "DarkSide", 0.04f,
+                new ConfigDescription("Earthshine on the dark side.", new AcceptableValueRange<float>(0f, 0.5f)));
+            MoonEmission = config.Bind(Moon, "Emission", 0.2f,
+                new ConfigDescription("Self-glow on the lit side.", new AcceptableValueRange<float>(0f, 2f)));
+            MoonTerminatorSoft = config.Bind(Moon, "TerminatorSoftness", 0.18f,
+                new ConfigDescription("Softness of the lit/dark boundary.", new AcceptableValueRange<float>(0f, 1f)));
+            MoonSaturation = config.Bind(Moon, "Saturation", 0.7f,
+                new ConfigDescription("0 = greyscale, 1 = full colour.", new AcceptableValueRange<float>(0f, 1f)));
+            Sync(sync, MoonEnabled); Sync(sync, MoonDistance); Sync(sync, MoonSizeScale); Sync(sync, MoonSynodicDays);
+            Sync(sync, MoonOrbitInclination); Sync(sync, MoonPhaseOffset); Sync(sync, MoonSunBrightness); Sync(sync, MoonDarkSide);
+            Sync(sync, MoonEmission); Sync(sync, MoonTerminatorSoft); Sync(sync, MoonSaturation);
+
+            ApplyMoon();
+            MoonEnabled.SettingChanged          += (_, __) => ApplyMoon();
+            MoonDistance.SettingChanged         += (_, __) => ApplyMoon();
+            MoonSizeScale.SettingChanged        += (_, __) => ApplyMoon();
+            MoonSynodicDays.SettingChanged      += (_, __) => ApplyMoon();
+            MoonOrbitInclination.SettingChanged += (_, __) => ApplyMoon();
+            MoonPhaseOffset.SettingChanged      += (_, __) => ApplyMoon();
+            MoonSunBrightness.SettingChanged    += (_, __) => ApplyMoon();
+            MoonDarkSide.SettingChanged         += (_, __) => ApplyMoon();
+            MoonEmission.SettingChanged         += (_, __) => ApplyMoon();
+            MoonTerminatorSoft.SettingChanged   += (_, __) => ApplyMoon();
+            MoonSaturation.SettingChanged       += (_, __) => ApplyMoon();
+
+            BindOrbitals(config, sync);
+        }
+
+        // Push diving config into the Diving module's static fields (read by Diver
+        // + the dive patches). Re-pushed on any change so the BepInEx config UI is live.
+        private static void ApplyDiving()
+        {
+            VerdantsAscent.Diving.FiresDiving.Enabled                = DivingEnabled.Value;
+            VerdantsAscent.Diving.FiresDiving.MaxSwimSpeed           = DivingMaxSwimSpeed.Value;
+            VerdantsAscent.Diving.FiresDiving.UnderwaterStaminaDrain = DivingStaminaDrain.Value;
+            VerdantsAscent.Diving.CreatureDiving.Enabled             = CreatureDivingEnabled.Value;
+            VerdantsAscent.Diving.CreatureDiving.MaxDiveDepth        = CreatureDiveMaxDepth.Value;
+            VerdantsAscent.Diving.CreatureDiving.DescendSpeed        = CreatureDiveSpeed.Value;
+        }
+
+        // Push moon config into the moon driver, and keep the tide phase math
+        // (FUC MoonPhase) in lockstep so the visible moon and the tides it drives
+        // stay synced on one cycle.
+        private static void ApplyMoon()
+        {
+            VerdantsAscent.Water.Core.FiresMoon.Enabled             = MoonEnabled.Value;
+            VerdantsAscent.Water.Core.FiresMoon.Distance            = MoonDistance.Value;
+            VerdantsAscent.Water.Core.FiresMoon.SizeScale           = MoonSizeScale.Value;
+            VerdantsAscent.Water.Core.FiresMoon.SynodicDays         = MoonSynodicDays.Value;
+            VerdantsAscent.Water.Core.FiresMoon.OrbitInclinationDeg = MoonOrbitInclination.Value;
+            VerdantsAscent.Water.Core.FiresMoon.PhaseOffsetDays     = MoonPhaseOffset.Value;
+            VerdantsAscent.Water.Core.FiresMoon.SunBrightness       = MoonSunBrightness.Value;
+            VerdantsAscent.Water.Core.FiresMoon.DarkSide            = MoonDarkSide.Value;
+            VerdantsAscent.Water.Core.FiresMoon.Emission            = MoonEmission.Value;
+            VerdantsAscent.Water.Core.FiresMoon.TerminatorSoft      = MoonTerminatorSoft.Value;
+            VerdantsAscent.Water.Core.FiresMoon.Saturation          = MoonSaturation.Value;
+            FiresCore.Services.MoonPhase.SynodicDays     = MoonSynodicDays.Value;
+            FiresCore.Services.MoonPhase.PhaseOffsetDays = MoonPhaseOffset.Value;
+        }
+
+        // One config section per orbital slot (4 slots x 15 live sliders), bound
+        // in a loop so the body that orbits, its path shape, and its timing are all
+        // tunable. Applied to FiresOrbitals.Configure on bind + any change.
+        private static void BindOrbitals(ConfigFile config, ConfigSync sync)
+        {
+            for (int i = 0; i < OrbitalSlots; i++)
+            {
+                string sec = OrbitalSections[i];
+                OrbitalEnabled[i]    = config.Bind(sec, "01 Enabled", i == 0,
+                    "Spawn this orbiting body. Slot A defaults on with a placeholder sphere so the system is visible out of the box.");
+                OrbitalPrefab[i]     = config.Bind(sec, "02 PrefabName", "",
+                    "Name of a ZNetScene prefab (ship / piece / FAP blueprint) to orbit. Empty or not found => placeholder sphere.");
+                OrbitalWidth[i]      = config.Bind(sec, "03 OrbitWidthMeters", 11000f, new ConfigDescription("Full horizontal width of the orbit (m).", new AcceptableValueRange<float>(2000f, 24000f)));
+                OrbitalApex[i]       = config.Bind(sec, "04 ApexHeight", 3000f,  new ConfigDescription("Highest point of the orbit (m).", new AcceptableValueRange<float>(200f, 8000f)));
+                OrbitalNadir[i]      = config.Bind(sec, "05 NadirHeight", -400f,  new ConfigDescription("Lowest point (m). Negative passes under the world on the far side.", new AcceptableValueRange<float>(-2000f, 2000f)));
+                OrbitalPeriod[i]     = config.Bind(sec, "06 PeriodSeconds", 300f, new ConfigDescription("Seconds for one full lap.", new AcceptableValueRange<float>(20f, 3600f)));
+                OrbitalEggRatio[i]   = config.Bind(sec, "07 EggRatio", 0.8f,      new ConfigDescription("Orbit shape: 1 = round, lower = more egg.", new AcceptableValueRange<float>(0.3f, 1f)));
+                OrbitalWobbleAmp[i]  = config.Bind(sec, "08 WobbleAmplitude", 0f, new ConfigDescription("Nutation: vertical nod height (m). 0 = none.", new AcceptableValueRange<float>(0f, 1500f)));
+                OrbitalWobbleSec[i]  = config.Bind(sec, "09 WobbleSeconds", 20f,  new ConfigDescription("Nutation period (s).", new AcceptableValueRange<float>(2f, 600f)));
+                OrbitalPrecession[i] = config.Bind(sec, "10 PrecessionMinutes", 0f, new ConfigDescription("Minutes for the orbit's high side to sweep a full circle around Y. 0 = fixed.", new AcceptableValueRange<float>(0f, 240f)));
+                OrbitalPhase[i]      = config.Bind(sec, "11 PhaseOffsetDeg", i * 90f, new ConfigDescription("Starting angle (deg) so bodies don't bunch up.", new AcceptableValueRange<float>(0f, 360f)));
+                OrbitalSpin[i]       = config.Bind(sec, "12 SpinDegPerSec", 10f,  new ConfigDescription("Body's own-axis spin (deg/s).", new AcceptableValueRange<float>(-180f, 180f)));
+                OrbitalScale[i]      = config.Bind(sec, "13 Scale", 50f,          new ConfigDescription("Model scale multiplier (placeholder sphere is 1m).", new AcceptableValueRange<float>(1f, 2000f)));
+                OrbitalTilt[i]       = config.Bind(sec, "14 TiltDeg", 0f,         new ConfigDescription("Orbital-plane inclination (deg).", new AcceptableValueRange<float>(-90f, 90f)));
+                OrbitalYaw[i]        = config.Bind(sec, "15 YawDeg", 0f,          new ConfigDescription("Compass heading of the orbit's long axis (deg).", new AcceptableValueRange<float>(0f, 360f)));
+
+                Sync(sync, OrbitalEnabled[i]); Sync(sync, OrbitalPrefab[i]); Sync(sync, OrbitalWidth[i]); Sync(sync, OrbitalApex[i]); Sync(sync, OrbitalNadir[i]);
+                Sync(sync, OrbitalPeriod[i]); Sync(sync, OrbitalEggRatio[i]); Sync(sync, OrbitalWobbleAmp[i]); Sync(sync, OrbitalWobbleSec[i]); Sync(sync, OrbitalPrecession[i]);
+                Sync(sync, OrbitalPhase[i]); Sync(sync, OrbitalSpin[i]); Sync(sync, OrbitalScale[i]); Sync(sync, OrbitalTilt[i]); Sync(sync, OrbitalYaw[i]);
+
+                System.EventHandler apply = (_, __) => ApplyOrbitals();
+                OrbitalEnabled[i].SettingChanged += apply; OrbitalPrefab[i].SettingChanged += apply; OrbitalWidth[i].SettingChanged += apply; OrbitalApex[i].SettingChanged += apply; OrbitalNadir[i].SettingChanged += apply;
+                OrbitalPeriod[i].SettingChanged += apply; OrbitalEggRatio[i].SettingChanged += apply; OrbitalWobbleAmp[i].SettingChanged += apply; OrbitalWobbleSec[i].SettingChanged += apply; OrbitalPrecession[i].SettingChanged += apply;
+                OrbitalPhase[i].SettingChanged += apply; OrbitalSpin[i].SettingChanged += apply; OrbitalScale[i].SettingChanged += apply; OrbitalTilt[i].SettingChanged += apply; OrbitalYaw[i].SettingChanged += apply;
+            }
+            ApplyOrbitals();
+        }
+
+        private static void ApplyOrbitals()
+        {
+            var orbitals = new VerdantsAscent.Water.Core.OrbitParams[OrbitalSlots];
+            for (int i = 0; i < OrbitalSlots; i++)
+            {
+                orbitals[i] = new VerdantsAscent.Water.Core.OrbitParams
+                {
+                    Enabled           = OrbitalEnabled[i].Value,
+                    PrefabName        = OrbitalPrefab[i].Value,
+                    OrbitWidth        = OrbitalWidth[i].Value,
+                    ApexHeight        = OrbitalApex[i].Value,
+                    NadirHeight       = OrbitalNadir[i].Value,
+                    PeriodSeconds     = OrbitalPeriod[i].Value,
+                    EggRatio          = OrbitalEggRatio[i].Value,
+                    WobbleAmplitude   = OrbitalWobbleAmp[i].Value,
+                    WobbleSeconds     = OrbitalWobbleSec[i].Value,
+                    PrecessionMinutes = OrbitalPrecession[i].Value,
+                    PhaseOffsetDeg    = OrbitalPhase[i].Value,
+                    SpinDegPerSec     = OrbitalSpin[i].Value,
+                    Scale             = OrbitalScale[i].Value,
+                    TiltDeg           = OrbitalTilt[i].Value,
+                    YawDeg            = OrbitalYaw[i].Value,
+                };
+            }
+            VerdantsAscent.Water.Core.FiresOrbitals.Configure(orbitals);
+        }
+
+        // Register a synced entry. Server-authority for ALL synced entries is
+        // governed by the single master locking entry (configServerAuthority),
+        // which the plugin registers once via AddLockingConfigEntry — ServerSync
+        // permits only one locking entry per ConfigSync, so we never add our own.
+        private static void Sync<T>(ConfigSync sync, ConfigEntry<T> entry)
+        {
+            if (sync == null) return;
+            sync.AddConfigEntry(entry);
+        }
+    }
+}
