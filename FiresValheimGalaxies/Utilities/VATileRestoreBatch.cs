@@ -79,6 +79,9 @@ namespace VerdantsAscent.Utilities
 
         // Emit the banner with the accumulated totals and reset.
         // Idempotent — calling when _pending==false is a no-op.
+        // The `_disks` counter tracks per-TILE DiskRecord entries (legacy
+        // RPG-maker dirt-floor disk records), NOT custom water/lava disks —
+        // those are reported separately by WaterPersistence on load.
         public static void Flush()
         {
             if (!_pending || _tiles == 0)
@@ -89,7 +92,15 @@ namespace VerdantsAscent.Utilities
 
             try
             {
-                VAFatLoadSummary.EmitTilesRestored(_tiles, _payloadBytes, _heightMods, _paintMods, _disks);
+                string payloadLabel = _payloadBytes >= 1024
+                    ? $"{_payloadBytes / 1024.0:F1}KB"
+                    : $"{_payloadBytes}B";
+                FiresCore.Logging.LoadSummary.For("FiresValheimGalaxies").EmitMiniBox("🪨 TILES", new[]
+                {
+                    $"{_tiles} restored · {payloadLabel}",
+                    $"hmods: {_heightMods} · pmods: {_paintMods}",
+                    _disks > 0 ? $"+ {_disks} terrain disk(s)" : "no terrain disks",
+                });
             }
             catch { /* banner failure must not leak the accumulator */ }
 

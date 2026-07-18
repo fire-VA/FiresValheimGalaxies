@@ -19,6 +19,7 @@ namespace VerdantsAscent.Water.Core
     {
         public bool   Enabled;
         public string PrefabName;     // bundle asset; empty/missing => placeholder sphere
+        public bool   FollowVanillaMoon;  // ignore the egg-orbit params and ride the vanilla moon's sky direction (anti-sun) so the body lines up with the moon light + god-rays
         public float  OrbitWidth;     // full horizontal width (m); semi-major = /2
         public float  ApexHeight;     // peak Y over the map (m)
         public float  NadirHeight;    // lowest Y under the world (m)
@@ -38,6 +39,8 @@ namespace VerdantsAscent.Water.Core
     {
         public static bool Enabled = true;
         public static Vector3 Center = Vector3.zero;   // Valheim world centre
+        private static readonly int s_propSkyboxSunDir = Shader.PropertyToID("_SkyboxSunDir");
+        private static readonly int s_propMasterFxOff  = Shader.PropertyToID("_FiresMasterFxOff");
 
         private static OrbitParams[] s_params = new OrbitParams[0];
         private static readonly List<Body> s_bodies = new List<Body>();
@@ -65,7 +68,9 @@ namespace VerdantsAscent.Water.Core
 
         public static void Tick()
         {
-            if (!Enabled) { TeardownAll(); return; }
+            // Cross-mod master kill: FiresTossinShade's "00 Master" pushes _FiresMasterFxOff=1
+            // for pure vanilla graphics — orbitals stand down like Enabled=false. Unset/0 = run.
+            if (!Enabled || Shader.GetGlobalFloat(s_propMasterFxOff) > 0.5f) { TeardownAll(); return; }
             if (s_dirty) { Rebuild(); s_dirty = false; }
 
             // A prefab named in the config but not yet in the bundle at spawn time
@@ -87,6 +92,20 @@ namespace VerdantsAscent.Water.Core
 
         public static Vector3 ComputePosition(OrbitParams p, float t)
         {
+            // Vanilla-moon anchor: ride the moon's real sky direction (anti-sun = -_SkyboxSunDir,
+            // the same value the moon/aurora shaders use — up at night, below the horizon by day)
+            // so the visible body sits where the moon light + god-rays originate. World-anchored at
+            // Center so it's still a reachable body (exactly aligned from map-centre, mild parallax
+            // far out; the LIGHT itself is pinned by EnvMan, so the shafts stay correct regardless).
+            if (p.FollowVanillaMoon)
+            {
+                Vector4 s = Shader.GetGlobalVector(s_propSkyboxSunDir);
+                Vector3 moonDir = new Vector3(-s.x, -s.y, -s.z);
+                if (moonDir.sqrMagnitude > 1e-4f)
+                    return Center + moonDir.normalized * Mathf.Max(500f, p.OrbitWidth * 0.5f);
+                // _SkyboxSunDir not ready yet — fall through to the egg orbit this frame.
+            }
+
             float w     = 2f * Mathf.PI / Mathf.Max(1f, p.PeriodSeconds);
             float theta = p.PhaseOffsetDeg * Mathf.Deg2Rad + t * w;
 
@@ -195,10 +214,18 @@ namespace VerdantsAscent.Water.Core
         private static GameObject ResolvePrefab(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
-            // Galaxies-owned orbitals resolve from Valheim's live prefab registry
-            // only (vanilla pieces, mod pieces, FAP-baked blueprints) — no shader-
-            // mod bundle dependency. Custom orbital models can ship in a Galaxies
-            // bundle later and be added here.
+            // The moon MODEL ships in the firesgalaxies bundle (NOT ZNetScene), so resolve it
+            // from FiresMoon — this is what lets an orbital slot orbit the real moon prefab (a
+            // reachable body) instead of the placeholder sphere. TryLoadAssets is idempotent, so
+            // it's safe to poke it here if the bundle loaded but the moon driver hasn't yet.
+            if (name.Equals(FiresMoon.PrefabName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                if (FiresMoon.MoonPrefab == null && VerdantsAscent.FiresValheimGalaxies.assetBundle != null)
+                    FiresMoon.TryLoadAssets(VerdantsAscent.FiresValheimGalaxies.assetBundle);
+                if (FiresMoon.MoonPrefab != null) return FiresMoon.MoonPrefab;
+            }
+            // Everything else resolves from Valheim's live prefab registry (vanilla pieces, mod
+            // pieces, FAP-baked blueprints) — no shader-mod bundle dependency.
             if (ZNetScene.instance != null)
             {
                 var fromScene = ZNetScene.instance.GetPrefab(name);
@@ -313,6 +340,31 @@ namespace VerdantsAscent.Water.Core
             foreach (var b in s_bodies)
                 if (b.Instance != null) Object.Destroy(b.Instance);
             s_bodies.Clear();
+        }
+
+        // fires_moondiag support — report every slot's params, its live body (or
+        // lack of one), and where the orbit math puts it RIGHT NOW, so a body
+        // that exists but sits beyond the main camera's far plane (or on a layer
+        // no camera draws) is visible in numbers.
+        public static void DumpState(System.Action<string> L, Vector3 playerPos)
+        {
+            L($"FiresOrbitals.Enabled={Enabled}  configuredSlots={s_params.Length}  liveBodies={s_bodies.Count}");
+            float t = Time.time;
+            for (int i = 0; i < s_params.Length; i++)
+            {
+                var p = s_params[i];
+                if (!p.Enabled) { L($"  slot {i}: disabled"); continue; }
+                Vector3 orbitPos = ComputePosition(p, t);
+                L($"  slot {i}: prefab='{p.PrefabName}' followVanillaMoon={p.FollowVanillaMoon} scale={p.Scale:F0} " +
+                  $"orbitPos=({orbitPos.x:F0},{orbitPos.y:F0},{orbitPos.z:F0}) distFromPlayer={Vector3.Distance(orbitPos, playerPos):F0}");
+                var b = s_bodies.Find(x => x.SlotIndex == i);
+                if (b == null || b.Instance == null) { L("         body: NONE (not built)"); continue; }
+                var go = b.Instance;
+                L($"         body: '{go.name}' placeholder={b.IsPlaceholder} active={go.activeInHierarchy} " +
+                  $"layer={go.layer} ('{LayerMask.LayerToName(go.layer)}') " +
+                  $"pos=({go.transform.position.x:F0},{go.transform.position.y:F0},{go.transform.position.z:F0}) " +
+                  $"scale={go.transform.localScale.x:F1}");
+            }
         }
     }
 

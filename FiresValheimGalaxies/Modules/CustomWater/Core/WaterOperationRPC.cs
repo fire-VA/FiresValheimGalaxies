@@ -81,7 +81,7 @@ namespace VerdantsAscent.Water.Core
                 ZRoutedRpc.instance.Register<ZPackage>(RPC_CLEAR_ALL_WATER, RPC_HandleClearAllWater);
 
                 _initialized = true;
-                Debug.Log("[WaterOperationRPC] Initialized all water operation RPCs");
+                FiresLogger.LogVerbose("[WaterOperationRPC] Initialized all water operation RPCs");
             }
             catch (Exception ex)
             {
@@ -325,7 +325,7 @@ namespace VerdantsAscent.Water.Core
             // DEPRECATED: Water anchors restore from ZDO automatically.
             // No need to request cache sync - this was causing duplicate combiner creation.
             // Anchors are the source of truth, not the server cache.
-            Debug.Log("[WaterOperationRPC] Cache sync disabled - anchors restore from ZDO directly");
+            FiresLogger.LogVerbose("[WaterOperationRPC] Cache sync disabled - anchors restore from ZDO directly");
         }
 
         #endregion

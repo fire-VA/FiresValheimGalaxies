@@ -22,8 +22,21 @@ namespace VerdantsAscent.Galaxies
         private const string Mouths    = "Galaxies - River Mouth Detection";
         private const string Diving    = "Galaxies - Diving";
         private const string Moon      = "Galaxies - Moon";
+        private const string Whirl     = "Galaxies - Whirlpools";
+        private const string TideShape = "Galaxies - Rivers & Tide Shaping";
 
         public static ConfigEntry<bool> EnableMod;
+
+        // Tidal mouths (feature A): keep rivers/swamps from draining at low tide.
+        public static ConfigEntry<bool>  TideShapingEnabled;
+        public static ConfigEntry<float> RiverTideFraction;   // 0 = rivers ignore tide entirely; 1 = full ocean tide
+        public static ConfigEntry<float> TideMouthBlend;      // metres of ocean↔inland crossfade at the mouth
+
+        // Extended rivers (feature B): bend the water plane UP along river spines.
+        public static ConfigEntry<bool>  ExtendedRiversEnabled;   // MASTER toggle — default OFF (experimental)
+        public static ConfigEntry<float> RiverMaxClimb;           // hard cap (m) on how far above Y30 water may rise
+        public static ConfigEntry<float> RiverBankMargin;         // keep the surface at least this far below the lower bank
+        public static ConfigEntry<float> RiverBankSampleWiden;    // sample banks this * halfWidth out (>1 = beyond the channel)
 
         public static ConfigEntry<bool>  DivingEnabled;
         public static ConfigEntry<float> DivingMaxSwimSpeed;
@@ -70,6 +83,7 @@ namespace VerdantsAscent.Galaxies
         public static ConfigEntry<bool>  EnablePlayerCurrents;
         public static ConfigEntry<bool>  EnableCreatureCurrents;
         public static ConfigEntry<float> CharacterCurrentScale;
+        public static ConfigEntry<bool>  AdminBypassCurrents;
 
         public static ConfigEntry<float> WindBehindThreshold;
         public static ConfigEntry<float> WindAgainstThreshold;
@@ -113,6 +127,24 @@ namespace VerdantsAscent.Galaxies
         public static ConfigEntry<float> RiverMouthScanCellSize;
         public static ConfigEntry<float> RiverMouthMaxBuildSeconds;
 
+        public static ConfigEntry<bool>   WhirlpoolsEnabled;
+        public static ConfigEntry<string> WhirlpoolStormEnvironments;
+        public static ConfigEntry<float>  WhirlpoolSpawnChance;
+        public static ConfigEntry<float>  WhirlpoolBlockSeconds;
+        public static ConfigEntry<float>  WhirlpoolScanRadius;
+        public static ConfigEntry<float>  WhirlpoolMinOceanDepth;
+        public static ConfigEntry<int>    WhirlpoolMaxActive;
+        public static ConfigEntry<float>  WhirlpoolOuterRadius;
+        public static ConfigEntry<float>  WhirlpoolCoreRadius;
+        public static ConfigEntry<float>  WhirlpoolTangentialSpeed;
+        public static ConfigEntry<float>  WhirlpoolRadialSpeed;
+        public static ConfigEntry<float>  WhirlpoolShipSinkForce;
+        public static ConfigEntry<float>  WhirlpoolShipDamage;
+        public static ConfigEntry<float>  WhirlpoolFunnelDepth;
+        public static ConfigEntry<float>  WhirlpoolSpiralArms;
+        public static ConfigEntry<float>  WhirlpoolSpiralSpeed;
+        public static ConfigEntry<float>  WhirlpoolRidgeHeight;
+
         public static ConfigEntry<bool>  DebugVisualizeCurrents;
         public static ConfigEntry<float> DebugCurrentsGridSpacing;
         public static ConfigEntry<float> DebugCurrentsGridRadius;
@@ -128,6 +160,101 @@ namespace VerdantsAscent.Galaxies
             EnableMod = config.Bind(General, "EnableMod", true,
                 "Master switch for the moon-driven tide and current system.");
             Sync(sync, EnableMod);
+
+            // ── Tidal mouths (A) + extended rivers (B) — CLIENT-LOCAL while experimental ──
+            // Deliberately NOT ServerSync'd: the shaping is DETERMINISTIC from worldgen (every
+            // client computes the identical field), and leaving these client-local lets you toggle
+            // and A/B them live against a server without the ServerAuthority lock reverting them.
+            // When the feature graduates, add Sync back so a server can pin the look for everyone.
+            TideShapingEnabled = config.Bind(TideShape, "TideShapingEnabled", true,
+                "Shape the tide spatially instead of dropping the whole world sheet uniformly: the open ocean "
+                + "gets the full tide, but rivers and swamps only get a fraction (RiverTideFraction) so they "
+                + "don't drain to nothing and stay navigable at low tide. Off = every water body drops the full "
+                + "tide (the old behaviour). Client-local, applies live.");
+            RiverTideFraction = config.Bind(TideShape, "RiverTideFraction", 0.1f,
+                new ConfigDescription("How much of the ocean tide reaches river/swamp water. 0.1 = they keep 90% of "
+                    + "their level at low tide (a slow trickle at the mouth); 0 = totally tide-immune; 1 = full ocean tide.",
+                    new AcceptableValueRange<float>(0f, 1f)));
+            TideMouthBlend = config.Bind(TideShape, "TideMouthBlend", 48f,
+                new ConfigDescription("Width (m) of the ocean↔inland crossfade at a river mouth, so the tide eases off "
+                    + "as you head upstream instead of stopping at a hard line.",
+                    new AcceptableValueRange<float>(8f, 200f)));
+
+            ExtendedRiversEnabled = config.Bind(TideShape, "ExtendedRiversEnabled", false,
+                "EXPERIMENTAL MASTER TOGGLE (default OFF). Bend the water plane UP along river spines to make true "
+                + "flowing rivers that climb above sea level (Y30). Strictly bank-safe: at every point the surface is "
+                + "clamped below the sampled riverbanks (minus RiverBankMargin), so a river whose banks can't hold the "
+                + "raise simply isn't raised there — no flooding. Capped by RiverMaxClimb. Both the visual and the "
+                + "buoyancy/swim surface follow it together. Client-local, applies live (re-bakes the field on toggle).");
+            RiverMaxClimb = config.Bind(TideShape, "RiverMaxClimb", 6f,
+                new ConfigDescription("Hard cap (m) on how far above sea level a river surface may climb, before the "
+                    + "bank-safety clamp. Keep modest — the banks clamp it lower anyway wherever they're low.",
+                    new AcceptableValueRange<float>(0f, 40f)));
+            RiverBankMargin = config.Bind(TideShape, "RiverBankMargin", 1.0f,
+                new ConfigDescription("Keep the raised surface at least this far (m) below the LOWER of the two banks. "
+                    + "Higher = more conservative (less flood risk, lower rivers); the safety headroom.",
+                    new AcceptableValueRange<float>(0.25f, 5f)));
+            RiverBankSampleWiden = config.Bind(TideShape, "RiverBankSampleWiden", 1.15f,
+                new ConfigDescription("Sample the banks this multiple of the channel half-width out from the centerline. "
+                    + ">1 checks terrain just beyond the water edge (stricter, safer); 1 = right at the water's edge.",
+                    new AcceptableValueRange<float>(1f, 2.5f)));
+
+            // Any shaping change invalidates the cached field + forces the shore-field baker to
+            // re-bake, so toggles/sliders apply live (no relog). The version bump is what
+            // FiresShoreField watches across the mod boundary.
+            System.EventHandler reshape = (_, __) =>
+            {
+                TideRiverField.Clear();
+                FiresCore.Services.WaterState.SurfaceFieldVersion++;
+            };
+            TideShapingEnabled.SettingChanged += reshape;
+            RiverTideFraction.SettingChanged += reshape;
+            TideMouthBlend.SettingChanged += reshape;
+            ExtendedRiversEnabled.SettingChanged += reshape;
+            RiverMaxClimb.SettingChanged += reshape;
+            RiverBankMargin.SettingChanged += reshape;
+            RiverBankSampleWiden.SettingChanged += reshape;
+
+            WhirlpoolsEnabled = config.Bind(Whirl, "WhirlpoolsEnabled", true,
+                "Whirlpools that spawn rarely during storms: a rotating current ring, an inward pull, a "
+                + "funnel depression in the water and a sink core that can pull ships under. Deterministic "
+                + "spawns (all players see the same whirlpools) — no networking involved.");
+            Sync(sync, WhirlpoolsEnabled);
+            WhirlpoolStormEnvironments = config.Bind(Whirl, "StormEnvironments", "ThunderStorm,Ashlands_SeaStorm,Ashlands_storm",
+                "Comma-separated environment names during which whirlpools may spawn.");
+            WhirlpoolSpawnChance = config.Bind(Whirl, "SpawnChancePerZone", 0.02f,
+                "Chance per 64m ocean zone per time block that a whirlpool forms there while a storm runs. "
+                + "0.02 = rare; raise for testing.");
+            WhirlpoolBlockSeconds = config.Bind(Whirl, "LifetimeSeconds", 180f,
+                "How long one whirlpool roll lives (it swells in and dies down inside this window).");
+            WhirlpoolScanRadius = config.Bind(Whirl, "ScanRadius", 320f,
+                "How far around the player the spawner evaluates ocean zones.");
+            WhirlpoolMinOceanDepth = config.Bind(Whirl, "MinOceanDepth", 8f,
+                "Minimum water depth for a spawn — keeps funnels off beaches and shallows.");
+            WhirlpoolMaxActive = config.Bind(Whirl, "MaxActive", 3,
+                "Cap on simultaneous storm-spawned whirlpools near the player.");
+            WhirlpoolOuterRadius = config.Bind(Whirl, "OuterRadius", 60f,
+                "Radius where the whirlpool's current begins.");
+            WhirlpoolCoreRadius = config.Bind(Whirl, "CoreRadius", 8f,
+                "Radius of the sink core — inside this, ships get dragged down.");
+            WhirlpoolTangentialSpeed = config.Bind(Whirl, "TangentialSpeed", 5f,
+                "Peak rotational current speed (m/s) — the swirl ships get caught in.");
+            WhirlpoolRadialSpeed = config.Bind(Whirl, "RadialSpeed", 1.5f,
+                "Inward pull current speed (m/s) — never zero inside the ring, strongest near the core.");
+            WhirlpoolShipSinkForce = config.Bind(Whirl, "ShipSinkForce", 25f,
+                "Downward force on ships inside the core (quadratic ramp — the trap).");
+            WhirlpoolShipDamage = config.Bind(Whirl, "ShipDamagePerSecond", 6f,
+                "Structural damage per second dealt to a ship held inside the sink core, at full "
+                + "strength at dead centre (scales down toward the core edge and with the "
+                + "grow/fade ramp). 0 disables hull damage.");
+            WhirlpoolFunnelDepth = config.Bind(Whirl, "FunnelDepth", 3f,
+                "How deep the water surface bowls at dead centre (affects buoyancy AND the visual).");
+            WhirlpoolSpiralArms = config.Bind(Whirl, "SpiralArms", 3f,
+                "Number of spiral ridges on the funnel wall.");
+            WhirlpoolSpiralSpeed = config.Bind(Whirl, "SpiralSpeed", 1.5f,
+                "Rotation speed of the spiral pattern (radians/sec).");
+            WhirlpoolRidgeHeight = config.Bind(Whirl, "RidgeHeight", 0.3f,
+                "Amplitude of the spiral ridges (fades to zero at the core and the rim).");
 
             EnableShipCurrents = config.Bind(Ships, "EnableShipCurrents", true,
                 "Apply current forces to ships.");
@@ -152,6 +279,11 @@ namespace VerdantsAscent.Galaxies
                     + "swim/walk velocity each fixed step. Higher = stronger pull. Default 2.0 "
                     + "feels clearly noticeable in default-strength currents.",
                     new AcceptableValueRange<float>(0f, 8f)));
+            AdminBypassCurrents = config.Bind(Ships, "AdminBypassCurrents", true,
+                "When true, currents do not push the local player OR any ship they own if the "
+                + "local player is an admin (or the host). Useful for admins building or "
+                + "surveying without fighting drift. God-mode and any flying state ALWAYS bypass "
+                + "currents regardless of this toggle. Server-authoritative.");
             Sync(sync, EnableShipCurrents);
             Sync(sync, ShipWaterHeightTolerance);
             Sync(sync, MaxCurrentSpeedContribution);
@@ -159,6 +291,7 @@ namespace VerdantsAscent.Galaxies
             Sync(sync, EnablePlayerCurrents);
             Sync(sync, EnableCreatureCurrents);
             Sync(sync, CharacterCurrentScale);
+            Sync(sync, AdminBypassCurrents);
 
             WindBehindThreshold = config.Bind(Wind, "WindBehindThreshold", 0.20f,
                 "Wind alignment above this means wind is helping the ship.");
@@ -439,9 +572,10 @@ namespace VerdantsAscent.Galaxies
             {
                 string sec = OrbitalSections[i];
                 OrbitalEnabled[i]    = config.Bind(sec, "01 Enabled", i == 0,
-                    "Spawn this orbiting body. Slot A defaults on with a placeholder sphere so the system is visible out of the box.");
-                OrbitalPrefab[i]     = config.Bind(sec, "02 PrefabName", "",
-                    "Name of a ZNetScene prefab (ship / piece / FAP blueprint) to orbit. Empty or not found => placeholder sphere.");
+                    "Spawn this orbiting body. Slot A defaults on with the FiresMoon model so the system is visible out of the box.");
+                OrbitalPrefab[i]     = config.Bind(sec, "02 PrefabName", i == 0 ? "FiresMoon" : "",
+                    "Prefab to orbit. 'FiresMoon' = the moon model from the firesgalaxies bundle (a reachable orbiting moon). "
+                    + "Otherwise any ZNetScene prefab name (ship / piece / FAP blueprint). Empty or not found => placeholder sphere.");
                 OrbitalWidth[i]      = config.Bind(sec, "03 OrbitWidthMeters", 11000f, new ConfigDescription("Full horizontal width of the orbit (m).", new AcceptableValueRange<float>(2000f, 24000f)));
                 OrbitalApex[i]       = config.Bind(sec, "04 ApexHeight", 3000f,  new ConfigDescription("Highest point of the orbit (m).", new AcceptableValueRange<float>(200f, 8000f)));
                 OrbitalNadir[i]      = config.Bind(sec, "05 NadirHeight", -400f,  new ConfigDescription("Lowest point (m). Negative passes under the world on the far side.", new AcceptableValueRange<float>(-2000f, 2000f)));
@@ -477,6 +611,9 @@ namespace VerdantsAscent.Galaxies
                 {
                     Enabled           = OrbitalEnabled[i].Value,
                     PrefabName        = OrbitalPrefab[i].Value,
+                    // A slot wired to the moon prefab rides the vanilla moon's sky direction
+                    // (see FiresOrbitals.ComputePosition) so it lines up with the moon light/shafts.
+                    FollowVanillaMoon = OrbitalPrefab[i].Value == VerdantsAscent.Water.Core.FiresMoon.PrefabName,
                     OrbitWidth        = OrbitalWidth[i].Value,
                     ApexHeight        = OrbitalApex[i].Value,
                     NadirHeight       = OrbitalNadir[i].Value,
@@ -493,6 +630,15 @@ namespace VerdantsAscent.Galaxies
                 };
             }
             VerdantsAscent.Water.Core.FiresOrbitals.Configure(orbitals);
+
+            // If an enabled slot is the reachable moon, hide the skybox-disc moon so there's
+            // exactly one moon (the vanilla flat moon stays suppressed by FiresMoonDriver).
+            bool moonOrbital = false;
+            for (int i = 0; i < OrbitalSlots; i++)
+                if (OrbitalEnabled[i].Value
+                    && OrbitalPrefab[i].Value == VerdantsAscent.Water.Core.FiresMoon.PrefabName)
+                { moonOrbital = true; break; }
+            VerdantsAscent.Water.Core.FiresMoon.SuppressDisc = moonOrbital;
         }
 
         // Register a synced entry. Server-authority for ALL synced entries is

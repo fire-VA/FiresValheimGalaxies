@@ -1,6 +1,6 @@
 using HarmonyLib;
 using UnityEngine;
-using FiresLogger = FiresCore.Logging.FiresLogger;
+using FiresLogger = VerdantsAscent.FiresLogger;
 
 namespace VerdantsAscent.Galaxies
 {
@@ -28,6 +28,15 @@ namespace VerdantsAscent.Galaxies
         {
             if (GalaxiesConfig.EnableMod == null || !GalaxiesConfig.EnableMod.Value) return;
             if (__instance == null || __instance.m_body == null || __instance.m_body.isKinematic) return;
+
+            // Universal skips (apply to every Character, no config gate):
+            //   - god / ghost mode: the character is intentionally invulnerable/
+            //     ignoring physics; drift would fight that intent.
+            //   - flying: airborne characters (debug-fly cheat, valkyries,
+            //     flying creatures) shouldn't be dragged by ocean current.
+            if (__instance.InGodMode() || __instance.InGhostMode()) return;
+            if (__instance.IsFlying()) return;
+
             if (!__instance.InWater()) return;
 
             bool isLocalPlayer = (__instance == Player.m_localPlayer);
@@ -35,6 +44,15 @@ namespace VerdantsAscent.Galaxies
             if (isLocalPlayer)
             {
                 if (!GalaxiesConfig.EnablePlayerCurrents.Value) return;
+                // Admin bypass: opt-out for admins who don't want to be pushed
+                // while surveying / building — covers ALL current sources,
+                // whirlpools included (the toggle means what it says; flip it
+                // off to feel whirlpools as admin). God-mode already covers
+                // most admin flows; this catches admin activity outside it.
+                if (GalaxiesConfig.AdminBypassCurrents.Value
+                    && ZNet.instance != null
+                    && ZNet.instance.LocalPlayerIsAdminOrHost())
+                    return;
             }
             else
             {

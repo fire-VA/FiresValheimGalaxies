@@ -2,8 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using VerdantsAscent.Water.Core;
-// FUC infrastructure (canonical async + logger).
-using FiresLogger = FiresCore.Logging.FiresLogger;
+// FUC infrastructure (canonical async) + the mod's own tagged logger.
+using FiresLogger = VerdantsAscent.FiresLogger;
 using FrameBudgetScheduler = FiresCore.Async.FrameBudgetScheduler;
 using WorkPriority = FiresCore.Async.WorkPriority;
 
@@ -41,7 +41,7 @@ namespace VerdantsAscent.Galaxies
             FrameBudgetScheduler.ScheduleCoroutine(WorkPriority.Low, BuildCoroutine(), onComplete: () =>
             {
                 _built = true;
-                FiresLogger.LogInfo($"River mouth registry built. {Mouths.Count} mouths.");
+                FiresLogger.LogVerbose($"River mouth registry built. {Mouths.Count} mouths.");
             });
         }
 
@@ -95,7 +95,7 @@ namespace VerdantsAscent.Galaxies
                 }
             }
 
-            FiresLogger.LogInfo($"River-mouth scan completed: {Mouths.Count} mouths.");
+            FiresLogger.LogVerbose($"River-mouth scan completed: {Mouths.Count} mouths.");
         }
 
         private enum CellKind { Unknown, Land, River, Ocean }

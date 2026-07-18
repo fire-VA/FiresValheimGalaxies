@@ -45,8 +45,8 @@ namespace VerdantsAscent.Terrain.Biome
                 return paintedBiome.Biome;
             }
 
-            // 2. Check environment box override
-            var envBox = EnvironmentBoxController.GetEnvBoxAtPosition(worldPos);
+            // 2. Check environment box override (canonical controller lives in FiresCore now)
+            var envBox = FiresCore.Utilities.EnvironmentBoxController.GetEnvBoxAtPosition(worldPos);
             if (envBox != null && envBox.ForcedBiome != Heightmap.Biome.None)
             {
                 return envBox.ForcedBiome;

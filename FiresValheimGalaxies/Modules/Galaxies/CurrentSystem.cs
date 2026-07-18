@@ -24,6 +24,15 @@ namespace VerdantsAscent.Galaxies
     {
         public static bool TryGetCurrent(Vector3 pos, out CurrentSample sample)
         {
+            // Whirlpools first — the strongest local phenomenon overrides river/tide/ocean
+            // flow inside its ring. Routing it through here means ships, swimmers and every
+            // FiresCore WaterState.TryGetFlow consumer get grabbed with zero extra wiring.
+            if (WhirlpoolSystem.TryGetFlow(pos, out Vector3 whirlDir, out float whirlSpeed))
+            {
+                sample = new CurrentSample(whirlDir, whirlSpeed, "Whirlpool");
+                return true;
+            }
+
             if (GalaxiesConfig.EnableRiverCurrents.Value &&
                 RiverCurrentCache.TryGetCachedRiverCurrent(pos, out Vector3 riverDir, out float riverStrength))
             {

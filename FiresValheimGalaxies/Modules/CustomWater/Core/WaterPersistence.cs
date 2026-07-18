@@ -15,14 +15,14 @@ namespace VerdantsAscent.Water.Core
     /// 1. FILE CACHE (WaterCombinerCache - primary for fast restoration):
     ///    - Local .bin file stores all combiner grid data per world
     ///    - On server start, LoadWaterData() proactively restores all combiners from cache
-    ///    - No zone loading required — water is available immediately
+    ///    - No zone loading required ï¿½ water is available immediately
     ///    - Saved on world save, shutdown, and logout
     /// 
     /// 2. ZDO ANCHORS (WaterMeshCombinerAnchor - secondary, source of truth):
     ///    - Each combiner has an invisible anchor ZDO (CustomRiver prefab at Y=-10)
     ///    - When zones load, anchors spawn and link to existing cached combiners
     ///    - If cache is missing, anchors restore from their own ZDO data (fallback)
-    ///    - Handles multiplayer sync — clients get water from anchor ZDOs
+    ///    - Handles multiplayer sync ï¿½ clients get water from anchor ZDOs
     /// 
     /// DATA FLOW:
     /// 1. Auto-gen or player places water ? Absorbed into combiner ? Anchor + Cache saved
@@ -88,7 +88,7 @@ namespace VerdantsAscent.Water.Core
 
             if (anchorsSaved > 0)
             {
-                Debug.Log($"[WaterPersistence] Saved {anchorsSaved} combiner anchors to ZDO (prefab: CustomRiver)");
+                FiresLogger.LogVerbose($"[WaterPersistence] Saved {anchorsSaved} combiner anchors to ZDO (prefab: CustomRiver)");
             }
         }
 
@@ -97,7 +97,7 @@ namespace VerdantsAscent.Water.Core
         /// 
         /// v5 relied entirely on ZDO anchors, but anchors only spawn when their zone loads
         /// (which requires a player nearby). On a fresh server restart with no players yet,
-        /// no zones load and no anchors spawn — water was lost until someone walked nearby.
+        /// no zones load and no anchors spawn ï¿½ water was lost until someone walked nearby.
         /// 
         /// v6 adds file-cache-first restoration (mirroring TerrainPersistence.LoadTerrainData):
         /// 1. Read cached groups from the local .bin file
@@ -152,11 +152,11 @@ namespace VerdantsAscent.Water.Core
 
             if (restoredCount > 0)
             {
-                Debug.Log($"[WaterPersistence] Restored {restoredCount} water combiners from file cache ({cache.Groups.Count} total cached groups)");
+                FiresLogger.LogInfo($"[WaterPersistence] Restored {restoredCount} water combiners from file cache ({cache.Groups.Count} total cached groups)");
             }
             else
             {
-                Debug.Log("[WaterPersistence] No water combiners to restore from cache");
+                FiresLogger.LogVerbose("[WaterPersistence] No water combiners to restore from cache");
             }
         }
 
@@ -205,7 +205,7 @@ namespace VerdantsAscent.Water.Core
 
             if (count > 0)
             {
-                Debug.Log($"[WaterPersistence] Cleared {count} water combiners (scene cleanup)");
+                FiresLogger.LogVerbose($"[WaterPersistence] Cleared {count} water combiners (scene cleanup)");
             }
         }
     }

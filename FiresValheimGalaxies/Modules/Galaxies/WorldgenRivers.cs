@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using VerdantsAscent.Water.Core;
-using FiresLogger = FiresCore.Logging.FiresLogger;
+using FiresLogger = VerdantsAscent.FiresLogger;
 
 namespace VerdantsAscent.Galaxies
 {
@@ -83,8 +83,8 @@ namespace VerdantsAscent.Galaxies
                         Add(s);
 
                 _built = true;
-                FiresLogger.LogInfo($"WorldgenRivers indexed: {Segments.Count} river/stream segments " +
-                                    $"(rivers={rivers?.Count ?? 0}, streams={streams?.Count ?? 0}).");
+                FiresLogger.LogVerbose($"WorldgenRivers indexed: {Segments.Count} river/stream segments " +
+                                       $"(rivers={rivers?.Count ?? 0}, streams={streams?.Count ?? 0}).");
             }
             catch (System.Exception ex)
             {
@@ -159,6 +159,44 @@ namespace VerdantsAscent.Galaxies
             flow = new Vector3(tangent.x, 0f, tangent.y);
             widthFactor = bestFactor;
             return true;
+        }
+
+        /// <summary>Channel geometry at a point for the extended-river raise: the curve-corrected
+        /// centerline point, the unit perpendicular (bank direction), the half-width, and the
+        /// centerline→bank width factor (1 at centre, 0 at the edge). Lets the raise sample the two
+        /// banks at <c>onPath ± perp * halfWidth</c>. False if the point isn't inside any channel.</summary>
+        public static bool TryGetChannel(Vector3 pos, out Vector2 onPath, out Vector2 perp,
+                                         out float halfWidth, out float widthFactor)
+        {
+            onPath = Vector2.zero; perp = Vector2.right; halfWidth = 0f; widthFactor = 0f;
+            if (!_built || Segments.Count == 0) return false;
+
+            Vector2 q = new Vector2(pos.x, pos.z);
+            float bestFactor = 0f;
+            bool found = false;
+
+            for (int i = 0; i < Segments.Count; i++)
+            {
+                Segment s = Segments[i];
+                Vector2 ap = q - s.P0;
+                float t = Mathf.Clamp(Vector2.Dot(ap, s.Axis), 0f, s.Length);
+                float curveOff = s.HasCurve ? s.CurveWidth * Mathf.Sin(t / s.CurveWavelength) : 0f;
+                Vector2 pt = s.P0 + s.Axis * t + s.Perp * curveOff;
+                float dist = Vector2.Distance(q, pt);
+                if (dist > s.HalfWidth) continue;
+
+                float f = 1f - (dist / s.HalfWidth);
+                if (f > bestFactor)
+                {
+                    bestFactor = f;
+                    onPath = pt;
+                    perp = s.Perp;
+                    halfWidth = s.HalfWidth;
+                    widthFactor = f;
+                    found = true;
+                }
+            }
+            return found;
         }
     }
 }

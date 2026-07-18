@@ -38,7 +38,7 @@ namespace VerdantsAscent
     {
         public const string PluginGUID = "com.Fire.FiresValheimGalaxies";
         public const string PluginName = "FiresValheimGalaxies";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.15";
 
         public static readonly Harmony harmony = new Harmony(PluginGUID);
         public static FiresValheimGalaxies Instance { get; private set; }
@@ -50,18 +50,22 @@ namespace VerdantsAscent
         public ConfigSync configSync;
         private static ILogHandler _originalLogHandler;
 
+        // BepInEx log source — banner emitters route through this (not Debug.Log)
+        // so banner lines don't stdout-echo a raw white console duplicate.
+        public static BepInEx.Logging.ManualLogSource Log;
+
         private void Awake()
         {
-            // BIG floating-island banner — fires FIRST so it sits at
-            // the top of the FAT console output as the load
-            // announcement. The compact tree-island-waterfall banner
-            // fires at the end of FinishInit to bookend the load with
-            // a "ready" confirmation. See VAFatBanner for the two-
-            // banner rationale + content.
-            try { VerdantsAscent.Utilities.VAFatBanner.PrintBig(); }
+            Log = Logger;
+            // BIG ringed-planet banner — fires FIRST so it sits at
+            // the top of the Galaxies console output as the load
+            // announcement. The compact planet banner fires once the
+            // world is live to bookend the load with a "ready"
+            // confirmation. See FiresGalaxiesBanner for the content.
+            try { VerdantsAscent.Utilities.FiresGalaxiesBanner.PrintBig(); }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[{PluginName}] VAFatBanner.PrintBig failed: {ex.Message}");
+                Debug.LogWarning($"[{PluginName}] FiresGalaxiesBanner.PrintBig failed: {ex.Message}");
             }
 
             Debug.Log($"[{PluginName}] Awake() entered — version {PluginVersion}");
@@ -73,7 +77,7 @@ namespace VerdantsAscent
             // rest. When FAT is absent, Galaxies drives those systems itself and
             // runs as a standalone mod.
             bool fatPresent = VerdantsAscent.Galaxies.Coexistence.FatPresent;
-            Debug.Log($"[{PluginName}] FiresAdminTerrain {(fatPresent ? "DETECTED — deferring water/terrain/sky to FAT, running tides only" : "absent — running full standalone water/terrain/sky + tides")}.");
+            FiresLogger.LogVerbose($"FiresAdminTerrain {(fatPresent ? "DETECTED — deferring water/terrain/sky to FAT, running tides only" : "absent — running full standalone water/terrain/sky + tides")}.");
 
             InstallLogFilter();
 
@@ -106,10 +110,6 @@ namespace VerdantsAscent
             configSync.AddConfigEntry(ConfigManager.Instance.configFiresWaterEnabled);
             configSync.AddConfigEntry(ConfigManager.Instance.configFiresWaterSwapVanilla);
             configSync.AddConfigEntry(ConfigManager.Instance.configFiresWaterUnderwaterEnv);
-            // SkyboxOverride is intentionally NOT added to configSync — it's a
-            // client-only diagnostic toggle. Each player should be able to
-            // A/B-test the horizon haze on their own machine without the
-            // server forcing a setting.
 
             // Moon-driven tide + current system. Binds its own config (server-
             // locked on the physics/visual entries) and hosts the per-frame tide
@@ -272,15 +272,15 @@ namespace VerdantsAscent
             // and persistence init when the real FAT plugin is loaded — it
             // registers these itself, and double-registration collides on console
             // commands and terrain ZDO persistence. Standalone Galaxies runs them.
+            int biomePersistOK = 0, biomePainterOK = 0, snowCmdsOK = 0, iceToolOK = 0, landSnowOK = 0;
             if (!fatPresent)
             {
-            int biomePersistOK = 0, biomePainterOK = 0, snowCmdsOK = 0, iceToolOK = 0, landSnowOK = 0;
 
             try
             {
                 VerdantsAscent.Terrain.Biome.BiomeFilePersistence.Initialize();
                 biomePersistOK = 1;
-                if (VerdantsAscent.Utilities.VAFatLoadSummary.VerboseEnabled)
+                if (FiresLogger.VerboseEnabled)
                     Debug.Log($"[{PluginName}] BiomeFilePersistence initialized.");
             }
             catch (Exception ex)
@@ -294,7 +294,7 @@ namespace VerdantsAscent
                 {
                     VerdantsAscent.Terrain.Biome.BiomeOverlayPainter.RegisterCommands();
                     biomePainterOK = 1;
-                    if (VerdantsAscent.Utilities.VAFatLoadSummary.VerboseEnabled)
+                    if (FiresLogger.VerboseEnabled)
                         Debug.Log($"[{PluginName}] BiomeOverlayPainter console commands registered.");
                 }
                 catch (Exception ex)
@@ -310,7 +310,7 @@ namespace VerdantsAscent
                 {
                     VerdantsAscent.Terrain.Snow.SnowCommands.RegisterCommands();
                     snowCmdsOK = 1;
-                    if (VerdantsAscent.Utilities.VAFatLoadSummary.VerboseEnabled)
+                    if (FiresLogger.VerboseEnabled)
                         Debug.Log($"[{PluginName}] SnowCommands console commands registered.");
                 }
                 catch (Exception ex)
@@ -331,7 +331,7 @@ namespace VerdantsAscent
                 {
                     VerdantsAscent.Water.Tools.IcePlacementTool.Initialize();
                     iceToolOK = 1;
-                    if (VerdantsAscent.Utilities.VAFatLoadSummary.VerboseEnabled)
+                    if (FiresLogger.VerboseEnabled)
                         Debug.Log($"[{PluginName}] IcePlacementTool + LandIce/FloatingIce commands registered.");
                 }
                 catch (Exception ex)
@@ -343,7 +343,7 @@ namespace VerdantsAscent
                 {
                     VerdantsAscent.Water.Tools.LandSnowCommands.Initialize();
                     landSnowOK = 1;
-                    if (VerdantsAscent.Utilities.VAFatLoadSummary.VerboseEnabled)
+                    if (FiresLogger.VerboseEnabled)
                         Debug.Log($"[{PluginName}] LandSnowCommands registered (terrain-anchor snow, no water).");
                 }
                 catch (Exception ex)
@@ -352,17 +352,6 @@ namespace VerdantsAscent
                 }
             }
 
-            // 🔧 COMMANDS mini-banner — single visual summary of which
-            // FAT sub-systems came up successfully. Replaces the 5-line
-            // "X console commands registered" cluster above with one
-            // box. Per-line details remain available via the verbose
-            // gate.
-            VerdantsAscent.Utilities.VAFatLoadSummary.EmitCommands(
-                biomePersistence: biomePersistOK,
-                biomePainter: biomePainterOK,
-                snowCmds: snowCmdsOK,
-                iceTool: iceToolOK,
-                landSnow: landSnowOK);
             }
 
             // Moon-driven tide system: queue the river-mouth scan once the local
@@ -374,7 +363,20 @@ namespace VerdantsAscent
                 Debug.LogWarning($"[{PluginName}] GalaxiesModule.StartWorld failed: {ex.Message}");
             }
 
-            // Compact "ready" banner — small floating island with
+            // 🌌 GALAXIES mini-box — single visual summary of the tide add-on
+            // plus the command sub-systems that came up. Per-line details
+            // remain available via the verbose gate.
+            int commandSubsystems = biomePersistOK + biomePainterOK + snowCmdsOK + iceToolOK + landSnowOK;
+            FiresCore.Logging.LoadSummary.For(PluginName).EmitMiniBox("🌌 GALAXIES", new[]
+            {
+                "tide system live",
+                "worldgen rivers indexed",
+                "river-mouth scan queued",
+                fatPresent ? "cmds: owned by FAT" : $"cmd subsystems ready: {commandSubsystems}",
+                fatPresent ? "deferring to FAT" : "full mode",
+            });
+
+            // Compact "ready" banner — small ringed planet with
             // brand panel. Deferred to WORLD LOAD time (when
             // ZNetScene is up) so it fires in lockstep with FAP's
             // and FGN's compact banners. The BIG "loading" banner
@@ -384,7 +386,7 @@ namespace VerdantsAscent
         }
 
         // Waits for ZNetScene + prefab table to be live, then emits
-        // the compact floating-island brand banner. Failure is
+        // the compact ringed-planet brand banner. Failure is
         // non-fatal — falls back to the plain "mod loaded" log so
         // the load event is still recorded.
         private System.Collections.IEnumerator EmitCompactBannerWhenZNetReady()
@@ -397,7 +399,7 @@ namespace VerdantsAscent
             }
             yield return new WaitForEndOfFrame();
 
-            try { VerdantsAscent.Utilities.VAFatBanner.Print(); }
+            try { VerdantsAscent.Utilities.FiresGalaxiesBanner.Print(); }
             catch (Exception ex)
             {
                 Debug.Log($"[{PluginName}] mod loaded. (banner failed: {ex.Message})");
@@ -465,7 +467,10 @@ namespace VerdantsAscent
 
             using (var stream = assembly.GetManifestResourceStream(resourceName))
             {
-                return AssetBundle.LoadFromStream(stream);
+                if (stream == null) return null;
+                using var ms = new System.IO.MemoryStream();
+                stream.CopyTo(ms);
+                return AssetBundle.LoadFromMemory(ms.ToArray());   // full copy — disposed-stream lazy re-read crashes the dedi
             }
         }
     }

@@ -49,17 +49,6 @@ namespace VerdantsAscent.Managers
         public ConfigEntry<int> configOceanRingExtendedActiveArea;
         public ConfigEntry<float> configOceanRingDepthThreshold;
 
-        // Custom/SkyboxProcedural runtime overrides — for A/B-testing which
-        // property creates the visible "horizon-haze band" past the water.
-        // Defaults are no-op (mul=1, offsets=0, blend=0) so flipping Override
-        // ON alone changes nothing visually. Tweak the sliders in-game via
-        // BepInEx ConfigurationManager and watch the horizon react.
-        public ConfigEntry<bool> configFiresSkyboxOverride;
-        public ConfigEntry<float> configFiresSkyboxAtmosphereThicknessMul;
-        public ConfigEntry<float> configFiresSkyboxFogHeightMinOffset;
-        public ConfigEntry<float> configFiresSkyboxFogHeightMaxOffset;
-        public ConfigEntry<float> configFiresSkyboxGroundColorBlendToSky;
-
         public event Action ConfigLockChanged;
 
         public void Initialize(ConfigFile config)
@@ -132,51 +121,10 @@ namespace VerdantsAscent.Managers
                     + "Higher = only in true deep ocean.",
                     new AcceptableValueRange<float>(1f, 30f)));
 
-            // Procedural skybox overrides for A/B-testing the horizon haze band.
-            // Defaults are no-op (multiplier=1, offsets=0, blend=0) so flipping
-            // Override ON alone changes nothing visually — tweak the sliders
-            // and watch the horizon to identify which property drives the band.
-            configFiresSkyboxOverride = config.Bind(
-                "FiresWater", "SkyboxOverride", false,
-                "When true, apply runtime overrides to Custom/SkyboxProcedural to test which property "
-                + "is responsible for the horizon-haze band. Use the AtmosphereThicknessMul / FogHeight* / "
-                + "GroundColorBlendToSky sliders below to tweak in-game and watch the horizon react. "
-                + "Default OFF (does nothing until you flip it on and adjust a slider).");
-
-            configFiresSkyboxAtmosphereThicknessMul = config.Bind(
-                "FiresWater", "SkyboxAtmosphereThicknessMul",
-                1.0f,
-                new ConfigDescription(
-                    "Multiplier applied to the captured original _AtmosphereThickness when SkyboxOverride "
-                    + "is true. 1.0 = unchanged. 0.0 = no atmospheric scattering (sharp horizon line). "
-                    + "> 1.0 = thicker atmosphere (heavier horizon haze).",
-                    new AcceptableValueRange<float>(0f, 5f)));
-
-            configFiresSkyboxFogHeightMinOffset = config.Bind(
-                "FiresWater", "SkyboxFogHeightMinOffset",
-                0f,
-                new ConfigDescription(
-                    "World-meters offset added to the captured _FogHeightMin. Push positive to move the "
-                    + "bottom of the height-fog band higher (e.g. above sea level Y=30 so the band stops "
-                    + "mixing with horizon waves).",
-                    new AcceptableValueRange<float>(-500f, 500f)));
-
-            configFiresSkyboxFogHeightMaxOffset = config.Bind(
-                "FiresWater", "SkyboxFogHeightMaxOffset",
-                0f,
-                new ConfigDescription(
-                    "World-meters offset added to the captured _FogHeightMax. Pair with FogHeightMinOffset "
-                    + "to translate the entire fog band up or down without changing its width.",
-                    new AcceptableValueRange<float>(-500f, 500f)));
-
-            configFiresSkyboxGroundColorBlendToSky = config.Bind(
-                "FiresWater", "SkyboxGroundColorBlendToSky",
-                0f,
-                new ConfigDescription(
-                    "Lerp factor from captured _GroundColor toward captured _SkyTint. 0.0 = unchanged "
-                    + "(vanilla colors, visible horizon-color discontinuity). 1.0 = ground color exactly "
-                    + "matches sky tint (kills the discontinuity entirely).",
-                    new AcceptableValueRange<float>(0f, 1f)));
+            // NOTE: this ConfigManager once carried "FiresWater/Skybox*" A/B-test entries cloned
+            // from FiresTossinShade. The skybox driver never shipped in Galaxies, so they were
+            // DEAD config that only looked functional (and misled a sky-flash investigation,
+            // 2026-07-09). Removed — the live skybox overrides are FTS's ("10 - FiresSky" etc.).
         }
 
         // Wired via configSync.lockedConfigChanged += Instance.OnConfigLockChanged.

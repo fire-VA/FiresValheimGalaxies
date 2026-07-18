@@ -45,13 +45,13 @@ namespace VerdantsAscent.Terrain.Persistence
                 _ihAssembly = assembly;
                 _ihLoaded = true;
                 _baseRulerType = assembly.GetType("InfinityTools.BaseRuler");
-                FiresLogger.LogInfo($"[TileHammerCompat] InfinityHammer detected (assembly {assembly.GetName().Version}) — BaseRuler type {(_baseRulerType != null ? "found" : "MISSING")}");
+                FiresLogger.LogVerbose($"[TileHammerCompat] InfinityHammer detected (assembly {assembly.GetName().Version}) — BaseRuler type {(_baseRulerType != null ? "found" : "MISSING")}");
                 break;
             }
 
             if (!_ihLoaded)
             {
-                FiresLogger.LogInfo("[TileHammerCompat] InfinityHammer not loaded — ruler-snap fix skipped (this is fine if you don't use IH).");
+                FiresLogger.LogVerbose("[TileHammerCompat] InfinityHammer not loaded — ruler-snap fix skipped (this is fine if you don't use IH).");
                 // Still apply the GetGroundHeight patches: WorldEditCommands
                 // (separate from IH) also uses GetGroundHeight for its terrain
                 // ops, and vanilla code paths benefit too. The patches are no-op
@@ -106,7 +106,7 @@ namespace VerdantsAscent.Terrain.Persistence
                 harmony.Patch(snapMethod,
                     prefix: new HarmonyMethod(prefixInfo),
                     postfix: new HarmonyMethod(postfixInfo));
-                FiresLogger.LogInfo("[TileHammerCompat] Patched InfinityTools.BaseRuler.Snap — ruler ring will now sit on custom tile platforms at the cursor Y.");
+                FiresLogger.LogVerbose("[TileHammerCompat] Patched InfinityTools.BaseRuler.Snap — ruler ring will now sit on custom tile platforms at the cursor Y.");
             }
             catch (Exception ex)
             {
@@ -273,7 +273,7 @@ namespace VerdantsAscent.Terrain.Persistence
                         nameof(GetGroundHeight_Single_Prefix),
                         BindingFlags.NonPublic | BindingFlags.Static);
                     harmony.Patch(m1, prefix: new HarmonyMethod(prefix));
-                    FiresLogger.LogInfo("[TileHammerCompat] Patched ZoneSystem.GetGroundHeight(Vector3) → ruler ring segments will now sample our tile height.");
+                    FiresLogger.LogVerbose("[TileHammerCompat] Patched ZoneSystem.GetGroundHeight(Vector3) → ruler ring segments will now sample our tile height.");
                 }
                 else
                 {
@@ -290,7 +290,7 @@ namespace VerdantsAscent.Terrain.Persistence
                         nameof(GetGroundHeight_OutParam_Prefix),
                         BindingFlags.NonPublic | BindingFlags.Static);
                     harmony.Patch(m2, prefix: new HarmonyMethod(prefix));
-                    FiresLogger.LogInfo("[TileHammerCompat] Patched ZoneSystem.GetGroundHeight(Vector3, out float).");
+                    FiresLogger.LogVerbose("[TileHammerCompat] Patched ZoneSystem.GetGroundHeight(Vector3, out float).");
                 }
                 else
                 {

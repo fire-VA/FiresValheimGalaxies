@@ -178,13 +178,13 @@ namespace VerdantsAscent.Modules.Utilities
             string targetDesc = "<null player>";
             try { if (p != null) targetDesc = p.GetPlayerName() ?? "<unnamed>"; } catch { targetDesc = "<unnameable>"; }
             string workDesc = work?.Method?.DeclaringType?.FullName + "." + (work?.Method?.Name ?? "<unknown>");
-            Debug.Log($"[LoginFreeze][DIAG] PlayerSpawnGate.InvokeWork ENTER target={targetDesc} work={workDesc}");
+            FiresLogger.LogVerbose($"[LoginFreeze][DIAG] PlayerSpawnGate.InvokeWork ENTER target={targetDesc} work={workDesc}");
             try { work(p); }
             catch (Exception ex)
             {
                 Debug.LogWarning($"{LogPrefix} deferred action threw: {ex.Message}");
             }
-            Debug.Log($"[LoginFreeze][DIAG] PlayerSpawnGate.InvokeWork EXIT target={targetDesc} work={workDesc}");
+            FiresLogger.LogVerbose($"[LoginFreeze][DIAG] PlayerSpawnGate.InvokeWork EXIT target={targetDesc} work={workDesc}");
         }
 
         // ??????????????????????????? DRIVER ???????????????????????????

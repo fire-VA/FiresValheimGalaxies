@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
-using FiresLogger = FiresCore.Logging.FiresLogger;
+using FiresLogger = VerdantsAscent.FiresLogger;
 
 namespace VerdantsAscent.Galaxies
 {
@@ -60,6 +60,17 @@ namespace VerdantsAscent.Galaxies
                 return;
 
             if (__instance.m_nview == null || !__instance.m_nview.IsValid() || !__instance.m_nview.IsOwner())
+                return;
+
+            // Admin bypass: ship owned by the local admin/host gets no current force
+            // AT ALL — including whirlpools. The toggle means what it says; an admin
+            // who wants to feel whirlpools turns AdminBypassCurrents off (user call,
+            // 2026-07-07 — an earlier build special-cased whirlpools past the bypass
+            // and it was reverted). Only applies to ships THIS client owns —
+            // remote-owned ships driven by non-admin players are unaffected.
+            if (GalaxiesConfig.AdminBypassCurrents.Value
+                && ZNet.instance != null
+                && ZNet.instance.LocalPlayerIsAdminOrHost())
                 return;
 
             Vector3 pos = __instance.transform.position;

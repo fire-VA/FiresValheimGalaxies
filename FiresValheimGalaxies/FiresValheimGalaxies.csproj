@@ -284,10 +284,6 @@
     <Compile Include="Modules\CustomWater\Tools\WaterPlacementTool.cs" />
     <Compile Include="Modules\CustomWater\VFX\WaterAmbientVFX.cs" />
     <Compile Include="Modules\CustomWater\Waterfall\CustomWaterfallController.cs" />
-    <Compile Include="Modules\EnvironmentBoxes\EnvironmentBoxClutterSpawner.cs" />
-    <Compile Include="Modules\EnvironmentBoxes\EnvironmentBoxController.cs" />
-    <Compile Include="Modules\EnvironmentBoxes\EnvironmentBoxPatches.cs" />
-    <Compile Include="Modules\EnvironmentBoxes\EnvironmentBoxScaler.cs" />
     <Compile Include="Modules\Utilities\NetworkObjectHelper.cs" />
     <Compile Include="Modules\Utilities\PlayerSpawnGate.cs" />
     <Compile Include="Modules\Diving\Diver.cs" />
@@ -302,21 +298,26 @@
     <Compile Include="Modules\Galaxies\MoonInput.cs" />
     <Compile Include="Modules\Galaxies\FiresOrbitals.cs" />
     <Compile Include="Modules\Galaxies\FiresMoonDriver.cs" />
+    <Compile Include="Modules\Galaxies\FiresMoonDiagCommand.cs" />
     <Compile Include="Modules\Galaxies\WaterUtil.cs" />
     <Compile Include="Modules\Galaxies\CurrentSystem.cs" />
     <Compile Include="Modules\Galaxies\RiverCurrentCache.cs" />
     <Compile Include="Modules\Galaxies\RiverMouthRegistry.cs" />
     <Compile Include="Modules\Galaxies\TidalCurrentField.cs" />
     <Compile Include="Modules\Galaxies\TideSystem.cs" />
+    <Compile Include="Modules\Galaxies\TideRiverField.cs" />
+    <Compile Include="Modules\Galaxies\WaterDiagCommand.cs" />
+    <Compile Include="Modules\Galaxies\ClutterTidePatch.cs" />
+    <Compile Include="Modules\Galaxies\GalaxiesWaterState.cs" />
+    <Compile Include="Modules\Galaxies\WhirlpoolSystem.cs" />
+    <Compile Include="Modules\Galaxies\WhirlpoolSpawner.cs" />
     <Compile Include="Modules\Galaxies\ShipCurrentPatch.cs" />
     <Compile Include="Modules\Galaxies\PlayerCurrentPatch.cs" />
     <Compile Include="Modules\Galaxies\WaterVolumeTidePatch.cs" />
     <Compile Include="Modules\Galaxies\WorldgenRivers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Utilities\FiresGalaxiesBanner.cs" />
     <Compile Include="Utilities\FiresLogger.cs" />
-    <Compile Include="Utilities\FiresLogColorPatch.cs" />
-    <Compile Include="Utilities\VAFatBanner.cs" />
-    <Compile Include="Utilities\VAFatLoadSummary.cs" />
     <Compile Include="Utilities\VATileRestoreBatch.cs" />
   </ItemGroup>
   <!--

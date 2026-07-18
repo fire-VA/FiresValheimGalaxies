@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using FiresLogger = FiresCore.Logging.FiresLogger;
+using FiresLogger = VerdantsAscent.FiresLogger;
 
 namespace VerdantsAscent.Galaxies
 {

@@ -1,8 +1,8 @@
 using UnityEngine;
-// Bind canonical FUC infrastructure for Galaxies. Aliases force the bare
-// names FiresLogger / PlayerSpawnGate to resolve to FUC rather than the
-// dormant FAT-clone copies in the VerdantsAscent root namespace.
-using FiresLogger = FiresCore.Logging.FiresLogger;
+// PlayerSpawnGate binds to canonical FUC infrastructure; FiresLogger binds
+// to the mod's own core-backed wrapper so lines carry the
+// FiresValheimGalaxies tag and gate on this mod's verbose config.
+using FiresLogger = VerdantsAscent.FiresLogger;
 using PlayerSpawnGate = FiresCore.Lifecycle.PlayerSpawnGate;
 
 namespace VerdantsAscent.Galaxies
@@ -16,6 +16,34 @@ namespace VerdantsAscent.Galaxies
         private const float CleanupIntervalSeconds = 60f;
         private float _lastCleanup;
 
+        // Publish the tide/current state to the FiresCore water contract so any mod
+        // (swimming, ships, FAT ponds) can query water height/flow without referencing
+        // Galaxies. Cleared on destroy so consumers fall back to vanilla water.
+        private void Awake()
+        {
+            FiresCore.Services.WaterState.Register(new GalaxiesWaterState());
+            // Surface-shaping field the FiresWater shore-field baker samples so the rendered
+            // mesh bends to match the buoyancy weld. This MUST apply the EXACT same feature
+            // gates as WaterVolumeTidePatch — otherwise the visual bends by the field while
+            // buoyancy uses the uniform tide (or vice versa), and the two surfaces split into
+            // the "pinned level + moving level" double-layer. With both shaping features off,
+            // this returns (1,0) everywhere → the shader's tide == the uniform buoyancy tide.
+            FiresCore.Services.WaterState.SurfaceFieldSampler = (x, z) =>
+            {
+                bool shape = GalaxiesConfig.TideShapingEnabled != null && GalaxiesConfig.TideShapingEnabled.Value;
+                bool riv   = GalaxiesConfig.ExtendedRiversEnabled != null && GalaxiesConfig.ExtendedRiversEnabled.Value;
+                float influence = shape ? TideRiverField.TideInfluence(x, z) : 1f;
+                float raise     = riv   ? TideRiverField.RiverRaise(x, z)     : 0f;
+                return new UnityEngine.Vector2(influence, raise);
+            };
+        }
+
+        private void OnDestroy()
+        {
+            FiresCore.Services.WaterState.Clear();
+            FiresCore.Services.WaterState.SurfaceFieldSampler = null;
+        }
+
         // Called from the plugin once Harmony patches are applied.
         public static void StartWorld()
         {
@@ -25,16 +53,18 @@ namespace VerdantsAscent.Galaxies
                 // by RiverCurrentCache for true along-channel flow direction.
                 WorldgenRivers.Build();
                 RiverMouthRegistry.RequestBuild();
-                FiresLogger.LogInfo("Galaxies: tide system live, worldgen rivers indexed, river-mouth scan queued.");
+                FiresLogger.LogVerbose("Galaxies: tide system live, worldgen rivers indexed, river-mouth scan queued.");
             });
         }
 
         public static void Shutdown()
         {
+            WhirlpoolSystem.Clear();
             RiverCurrentCache.Clear();
             ShipCurrentPatch.ClearSmoothing();
             RiverMouthRegistry.Clear();
             WorldgenRivers.Clear();
+            TideRiverField.Clear();
             TideSystem.Reset();
         }
 
@@ -44,6 +74,8 @@ namespace VerdantsAscent.Galaxies
                 return;
 
             TideSystem.Tick();
+            WhirlpoolSpawner.Tick();                 // storm-gated deterministic spawns (1s throttle inside)
+            WhirlpoolSystem.PushShaderGlobals();     // _FiresWhirl* globals for FiresWater's funnel visual
 
             if (Time.time - _lastCleanup >= CleanupIntervalSeconds)
             {

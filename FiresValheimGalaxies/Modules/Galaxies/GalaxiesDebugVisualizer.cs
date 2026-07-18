@@ -2,7 +2,7 @@ using System.Collections;
 using System.Reflection;
 using UnityEngine;
 using VerdantsAscent.Water.Core;
-using FiresLogger = FiresCore.Logging.FiresLogger;
+using FiresLogger = VerdantsAscent.FiresLogger;
 
 namespace VerdantsAscent.Galaxies
 {

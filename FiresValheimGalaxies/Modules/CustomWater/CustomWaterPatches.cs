@@ -351,7 +351,7 @@ namespace VerdantsAscent.Water.Core
             if (__instance != Player.m_localPlayer) return;
 
             // DIAG (login-freeze)
-            Debug.Log("[LoginFreeze][DIAG] ENTER CustomWaterPatches.Player_OnSpawned_Postfix");
+            FiresLogger.LogVerbose("[LoginFreeze][DIAG] ENTER CustomWaterPatches.Player_OnSpawned_Postfix");
 
             // Ensure water cache is initialized. On client reconnect, ZNet.Start()
             // fires before world data is received, so the cache may not have been
@@ -379,11 +379,11 @@ namespace VerdantsAscent.Water.Core
             }
             else
             {
-                Debug.Log($"[CustomWaterPatches] Player spawned - {WaterMeshCombiner.AllCombiners.Count} water combiners already present");
+                FiresLogger.LogVerbose($"[CustomWaterPatches] Player spawned - {WaterMeshCombiner.AllCombiners.Count} water combiners already present");
             }
 
             // DIAG (login-freeze)
-            Debug.Log("[LoginFreeze][DIAG] EXIT CustomWaterPatches.Player_OnSpawned_Postfix");
+            FiresLogger.LogVerbose("[LoginFreeze][DIAG] EXIT CustomWaterPatches.Player_OnSpawned_Postfix");
         }
 
         /// <summary>

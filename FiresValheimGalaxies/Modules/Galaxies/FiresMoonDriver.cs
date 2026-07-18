@@ -61,6 +61,11 @@ namespace VerdantsAscent.Water.Core
 
         // ===== Configurable from C# (driven by ConfigManager via static fields) =====
         public static bool  Enabled       = true;
+        // When true, the reachable orbital moon (FiresOrbitals, wired to the FiresMoon prefab)
+        // is the visible moon, so hide THIS skybox 3D disc to avoid two moons — but keep
+        // suppressing Valheim's flat vanilla moon so exactly one moon shows. Tides/phase logic
+        // are unaffected (those live in TideSystem, not here).
+        public static bool  SuppressDisc  = false;
         // World-space distance from camera. Safe to put very far because we
         // assign the moon to Unity layer 19 ("skybox") which is rendered by
         // Valheim's dedicated SkyboxCamera (depth=-2, far clip=100000m).
@@ -128,6 +133,7 @@ namespace VerdantsAscent.Water.Core
         public  static GameObject MoonInstance { get; private set; }
         public  static Material   MoonMaterial { get; private set; }
 
+        private static readonly int s_propMasterFxOff   = Shader.PropertyToID("_FiresMasterFxOff");
         private static readonly int Prop_MainTex        = Shader.PropertyToID("_MainTex");
         private static readonly int Prop_SunBrightness  = Shader.PropertyToID("_SunBrightness");
         private static readonly int Prop_DarkSide       = Shader.PropertyToID("_DarkSide");
@@ -189,13 +195,16 @@ namespace VerdantsAscent.Water.Core
             }
 
             bool ok = MoonShader != null && MoonPrefab != null && MoonTexture != null;
-            if (ok) Debug.Log($"[FiresMoon] Loaded shader/prefab/texture from bundle.");
+            if (ok) FiresLogger.LogVerbose($"[FiresMoon] Loaded shader/prefab/texture from bundle.");
             return ok;
         }
 
         public static void Tick(Camera cam)
         {
-            if (!Enabled)
+            // Cross-mod master kill: FiresTossinShade's "00 Master" pushes _FiresMasterFxOff=1
+            // when the user wants pure vanilla graphics. Stand down exactly like Enabled=false —
+            // vanilla moon restored, our disc hidden. Unset/0 (FTS absent or master on) = run.
+            if (!Enabled || Shader.GetGlobalFloat(s_propMasterFxOff) > 0.5f)
             {
                 ApplyVanillaMoonSuppression(false);
                 if (MoonInstance != null) MoonInstance.SetActive(false);
@@ -205,8 +214,19 @@ namespace VerdantsAscent.Water.Core
             if (cam == null) return;
             if (MoonShader == null || MoonPrefab == null || MoonTexture == null) return;
 
-            EnsureInstance(cam);
+            // We own "the moon" — keep Valheim's flat vanilla moon hidden either way.
             ApplyVanillaMoonSuppression(true);
+
+            // The reachable orbital moon (FiresOrbitals → FiresMoon prefab) is the visible moon,
+            // so hide this skybox 3D disc to avoid two moons. Vanilla moon stays suppressed above,
+            // so exactly one moon shows; tides/phase live in TideSystem and are unaffected.
+            if (SuppressDisc)
+            {
+                if (MoonInstance != null && MoonInstance.activeSelf) MoonInstance.SetActive(false);
+                return;
+            }
+
+            EnsureInstance(cam);
             UpdateMaterialParams();
             UpdateMoonTransform(cam);
         }
@@ -400,10 +420,10 @@ namespace VerdantsAscent.Water.Core
                 // bounds. If rendererCount == 0 the FBX hierarchy is empty
                 // and you'll see the "Instantiated" log but NOTHING in the
                 // sky — that's the symptom to look for.
-                Debug.Log($"[FiresMoon] Instantiated 3D moon — renderers={rendererCount}, " +
-                          $"bounds.size={sz}, nativeRadius={s_meshNativeRadius:F2}, " +
-                          $"layer={MoonInstance.layer} ('skybox'={SkyboxLayer}), " +
-                          $"prefab='{MoonPrefab.name}', instance children={MoonInstance.transform.childCount}");
+                FiresLogger.LogVerbose($"[FiresMoon] Instantiated 3D moon — renderers={rendererCount}, " +
+                                       $"bounds.size={sz}, nativeRadius={s_meshNativeRadius:F2}, " +
+                                       $"layer={MoonInstance.layer} ('skybox'={SkyboxLayer}), " +
+                                       $"prefab='{MoonPrefab.name}', instance children={MoonInstance.transform.childCount}");
                 if (rendererCount == 0)
                 {
                     Debug.LogWarning("[FiresMoon] WARNING: FBX prefab has NO renderers in hierarchy. " +
