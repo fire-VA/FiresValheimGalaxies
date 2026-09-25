@@ -422,6 +422,8 @@ namespace VerdantsAscent.Water.Core
             return text;
         }
 
+        public float GetHoverOffset() => 0f;
+
         public string GetHoverName()
         {
             return "Custom Water";

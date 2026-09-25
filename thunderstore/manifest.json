@@ -1,6 +1,6 @@
 {
     "name":  "FiresValheimGalaxies",
-    "version_number":  "0.1.15",
+    "version_number":  "0.1.25",
     "website_url":  "https://github.com/fire-VA/FiresValheimGalaxies",
     "description":  "Part of the Fires mod family for Valheim.",
     "dependencies":  [

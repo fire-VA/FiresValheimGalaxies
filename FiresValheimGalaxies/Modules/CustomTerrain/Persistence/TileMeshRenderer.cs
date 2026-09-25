@@ -1,5 +1,5 @@
 using UnityEngine;
-using VerdantsAscent.Terrain.Utilities;
+using FiresCore.Materials;
 
 namespace VerdantsAscent.Terrain.Persistence
 {
@@ -130,11 +130,12 @@ namespace VerdantsAscent.Terrain.Persistence
         // Awake before any heightmap is loaded get this (Standard dirtfloor
         // look). Once _cachedHeightmapMaterial lands, an upgrade pass
         // re-assigns every tile to it in one sweep.
-        // Material acquisition is centralized in TerrainMaterialCache. This
-        // file no longer keeps its own cache field or retry timer — when
-        // TerrainMaterialCache captures a real Custom/Heightmap material
-        // (via Harmony postfix on Heightmap.RebuildRenderMesh), it calls
-        // UpgradeAllRenderersToCachedMaterial below in one pass. Until
+        // Material acquisition is centralized in FiresUnifiedCore's
+        // TerrainMaterialCache. This file keeps no cache field or retry
+        // timer — when the cache captures a real Custom/Heightmap material
+        // (via Harmony postfix on Heightmap.RebuildRenderMesh), the plugin's
+        // MaterialCaptured handler calls UpgradeAllRenderersToCachedMaterial
+        // below in one pass. Until
         // capture lands, GetCurrentMaterial returns a visible Standard
         // fallback so tiles aren't pink/invisible.
         //
@@ -215,7 +216,7 @@ namespace VerdantsAscent.Terrain.Persistence
                 // Single source of truth: TerrainMaterialCache. Returns the
                 // captured Custom/Heightmap clone when available, otherwise
                 // a visible Standard fallback. When the capture later fires
-                // via Heightmap.RebuildRenderMesh postfix, the cache calls
+                // via Heightmap.RebuildRenderMesh postfix, MaterialCaptured calls
                 // UpgradeAllRenderersToCachedMaterial below to swap every
                 // tile's material in one pass.
                 _meshRenderer.sharedMaterial = TerrainMaterialCache.GetCurrentMaterial();
@@ -231,7 +232,7 @@ namespace VerdantsAscent.Terrain.Persistence
             }
         }
 
-        // Called by TerrainMaterialCache once the cached material exists,
+        // Called from TerrainMaterialCache.MaterialCaptured once the cached material exists,
         // so every already-spawned tile renderer picks up the new material
         // in one sweep. Idempotent — tiles already on the cached material
         // are skipped.

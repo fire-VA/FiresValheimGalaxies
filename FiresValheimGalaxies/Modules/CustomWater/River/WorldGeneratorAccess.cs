@@ -8,13 +8,13 @@ namespace VerdantsAscent.Water.Core
 {
     /// <summary>
     /// Cached reflection accessors for private WorldGenerator fields and methods.
-    /// These are private in the Valheim assembly — we access them via Harmony's AccessTools.
+    /// These are private in the Valheim assembly - we access them via Harmony's AccessTools.
     /// 
     /// Fields accessed:
-    /// - m_rivers: List&lt;WorldGenerator.River&gt; — generated river paths
-    /// - m_streams: List&lt;WorldGenerator.River&gt; — generated stream paths
-    /// - m_lakes: List&lt;Vector2&gt; — detected lake positions (XZ)
-    /// - m_world: World — the current world data (needed to check m_menu)
+    /// - m_rivers: List&lt;WorldGenerator.River&gt; - generated river paths
+    /// - m_streams: List&lt;WorldGenerator.River&gt; - generated stream paths
+    /// - m_lakes: List&lt;Vector2&gt; - detected lake positions (XZ)
+    /// - m_world: World - the current world data (needed to check m_menu)
     /// 
     /// Methods accessed:
     /// - GetRiverWeight: void(float wx, float wy, out float weight, out float width)
@@ -25,9 +25,9 @@ namespace VerdantsAscent.Water.Core
     /// Better Continents compatibility:
     /// - Detects if BC is loaded and whether HeightmapOverrideAll is active
     /// - When HeightmapOverrideAll = true, terrain has no river channels even though
-    ///   m_rivers data exists — auto water generation should be skipped
+    ///   m_rivers data exists - auto water generation should be skipped
     /// - BC never patches GetRiverWeight(), so our channel detection always works
-    /// - BC can disable rivers (RiversEnabled=false), which empties m_rivers — handled naturally
+    /// - BC can disable rivers (RiversEnabled=false), which empties m_rivers - handled naturally
     /// </summary>
     public static class WorldGeneratorAccess
     {

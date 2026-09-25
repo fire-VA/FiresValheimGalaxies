@@ -138,7 +138,7 @@ namespace VerdantsAscent.Water.Core
         /// <summary>
         /// How aggressively depth normalization corrects inconsistencies (0-1).
         /// 0 = no correction, 1 = snap to target depth everywhere.
-        /// 0.85 snaps almost fully to the flat cross-section level � real water
+        /// 0.85 snaps almost fully to the flat cross-section level - real water
         /// is flat, so we enforce it strongly. The remaining 0.15 keeps a tiny
         /// amount of natural variation so the surface doesn't look machined.
         /// </summary>
@@ -146,7 +146,7 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Minimum depth the normalization will enforce above the centerline bed.
-        /// Water never thins out below this � prevents disappearing in shallow dips.
+        /// Water never thins out below this - prevents disappearing in shallow dips.
         /// </summary>
         private const float DEPTH_NORM_MIN = 0.3f;
 
@@ -158,9 +158,9 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Radius (in grid cells) for the centerline bed height scan.
-        /// At each water cell we look �this many cells along the disk chain
+        /// At each water cell we look +/- this many cells along the disk chain
         /// to find the representative bed height for that segment.
-        /// 4 cells � ~0.33m/cell ? 1.3m scan radius � tight to local bed.
+        /// 4 cells - ~0.33m/cell ? 1.3m scan radius - tight to local bed.
         /// </summary>
         private const int DEPTH_NORM_BED_SCAN_RADIUS = 4;
 
@@ -257,15 +257,15 @@ namespace VerdantsAscent.Water.Core
             // Step 4: Calculate water surface with proper depth
             CalculateWaterSurfaceWithDepth();
 
-            // Step 4.5: Gravity settle � pull down floating edges, fix buried water
+            // Step 4.5: Gravity settle - pull down floating edges, fix buried water
             GravitySettleEdges();
 
-            // Step 4.6: Channel depth normalization � maintain consistent depth
+            // Step 4.6: Channel depth normalization - maintain consistent depth
             // along river/stream centerlines using pre-sampled terrain heights.
             // Only active in river mode (ponds are already flat).
             NormalizeChannelDepth();
 
-            // Step 4.7: Terrain clip � kill cells where terrain rises above the
+            // Step 4.7: Terrain clip - kill cells where terrain rises above the
             // computed water surface. Prevents flat sheets cutting through hills.
             TerrainClipPass();
 
@@ -352,7 +352,7 @@ namespace VerdantsAscent.Water.Core
                 SetupGrid();
                 yield return null;
 
-                // Phase 2: Terrain sampling (main thread coroutine � requires Unity API)
+                // Phase 2: Terrain sampling (main thread coroutine - requires Unity API)
                 yield return SampleTerrainHeightsAsync();
 
                 // Phase 3: Submit surface calc + gravity settle + smoothing + mesh building to background thread
@@ -685,7 +685,7 @@ namespace VerdantsAscent.Water.Core
 
             // PRIMARY: Use WorldGenerator.GetHeight() for pure procedural terrain.
             // This returns the exact terrain height including river carving (AddRivers),
-            // biome height, and Better Continents modifications � but WITHOUT any
+            // biome height, and Better Continents modifications - but WITHOUT any
             // player-placed objects, rocks, buildings, or vegetation that would
             // inflate the height and cause water to ride up bank edges.
             if (WorldGenerator.instance != null)
@@ -988,7 +988,7 @@ namespace VerdantsAscent.Water.Core
                 // Each disk's Y is authoritative at its center. In overlap zones,
                 // the surface smoothly blends between disk heights using inverse
                 // distance weighting. This respects the placement height set by
-                // the Infinity Hammer ruler � a disk placed at Y=40 stays at Y=40
+                // the Infinity Hammer ruler - a disk placed at Y=40 stays at Y=40
                 // near its center, even if a neighboring disk is at Y=35.
                 float weightedY = 0f;
                 float totalIDW = 0f;
@@ -1029,7 +1029,7 @@ namespace VerdantsAscent.Water.Core
                     surfaceY = terrainY + WATER_TERRAIN_OFFSET;
                 }
 
-                // NOTE: No terrain cap � the disk Y IS the intended water level.
+                // NOTE: No terrain cap - the disk Y IS the intended water level.
                 // The user set this height via the IH ruler; we must respect it.
                 // Terrain clip pass (step 4.7) will remove cells where terrain
                 // actually rises above the surface.
@@ -1224,7 +1224,7 @@ namespace VerdantsAscent.Water.Core
         /// Fills gaps between water disks by lateral expansion.
         /// 
         /// KEY CHANGE from old approach: uses MINIMUM neighbor height (not average)
-        /// so the fill never pulls the surface UP � it only extends water laterally
+        /// so the fill never pulls the surface UP - it only extends water laterally
         /// at or below the height of existing water. This preserves the channel depth
         /// profile set by the disk placement pass.
         /// 
@@ -1301,7 +1301,7 @@ namespace VerdantsAscent.Water.Core
         /// 
         /// 2. DISK-CENTER BURIED FIX: If a grid cell is near a disk's CENTER position
         ///    and the water surface is below terrain there, push up to terrain + offset.
-        ///    Only applies within a small radius of the disk center � edge/bank cells
+        ///    Only applies within a small radius of the disk center - edge/bank cells
         ///    below terrain stay put (they clip through terrain naturally, which is
         ///    correct behavior for hiding mesh edges at shorelines).
         /// 
@@ -1349,7 +1349,7 @@ namespace VerdantsAscent.Water.Core
                     // Only push water UP if the cell is at a disk center and
                     // the surface ended up below terrain. This ensures the center
                     // of each disk is always visible. Edge cells below terrain
-                    // stay put � they clip through bank naturally.
+                    // stay put - they clip through bank naturally.
                     if (surfaceY < terrainY + WATER_TERRAIN_OFFSET)
                     {
                         if (isNearDiskCenter)
@@ -1385,7 +1385,7 @@ namespace VerdantsAscent.Water.Core
                     float floatHeight = surfaceY - terrainY;
                     if (floatHeight < 0.5f) continue; // Only fix significant floating (>0.5m)
 
-                    // Check for bank support � nearby terrain that contains the water
+                    // Check for bank support - nearby terrain that contains the water
                     bool hasBankSupport = false;
                     int bankScanRadius = 2;
                     for (int bz = -bankScanRadius; bz <= bankScanRadius && !hasBankSupport; bz++)
@@ -1408,7 +1408,7 @@ namespace VerdantsAscent.Water.Core
 
                     if (!hasBankSupport)
                     {
-                        // No bank support � water is floating at the edge.
+                        // No bank support - water is floating at the edge.
                         // Pull it down to just above terrain (gravity settle).
                         _surfaceHeights[idx] = terrainY + WATER_TERRAIN_OFFSET;
                     }
@@ -1421,7 +1421,7 @@ namespace VerdantsAscent.Water.Core
         ///
         /// PROBLEM SOLVED: Without this, water rides up steep banks because the
         /// per-cell surface interpolation follows the terrain slope. Real water
-        /// is FLAT across a channel cross-section � it doesn't climb the banks.
+        /// is FLAT across a channel cross-section - it doesn't climb the banks.
         ///
         /// ALGORITHM:
         /// 1. Build an ordered disk chain by nearest-neighbor linking.
@@ -1439,7 +1439,7 @@ namespace VerdantsAscent.Water.Core
         /// original surface" which prevented fixing cells that were incorrectly
         /// pulled DOWN by bank-slope terrain in the initial interpolation pass.
         /// Now we allow raising to the flat level because that IS the correct
-        /// height � the flat level is already capped by the disk chain heights
+        /// height - the flat level is already capped by the disk chain heights
         /// which encode the monotonic downhill profile.
         ///
         /// THREAD SAFETY: Uses only _surfaceHeights, _terrainHeights, and
@@ -1531,7 +1531,7 @@ namespace VerdantsAscent.Water.Core
                 segBedY[s] = minBed;
 
                 // Flat level = interpolated disk height.
-                // Disk heights are authoritative � they encode the water level
+                // Disk heights are authoritative - they encode the water level
                 // the user or auto-generator intended. We only use the bed as a
                 // FLOOR (water can't be below terrain), never as a ceiling that
                 // pulls the surface down to terrain + 1.2m.
@@ -1621,13 +1621,13 @@ namespace VerdantsAscent.Water.Core
                     // (wider than before to catch more of the channel cross-section)
                     float edgeFactor = Mathf.Clamp01((1.1f - normLateral) / 0.5f);
 
-                    // Skip cells far from centerline � they're bank/edge cells
+                    // Skip cells far from centerline - they're bank/edge cells
                     if (edgeFactor < 0.01f) continue;
 
                     float localFloor = terrainY + WATER_TERRAIN_OFFSET;
 
                     // If terrain is ABOVE the flat level at this cell, the water
-                    // should clip through (bank extension) � push below terrain.
+                    // should clip through (bank extension) - push below terrain.
                     if (terrainY > flatLevel + 0.1f)
                     {
                         float bankSurface = terrainY - BANK_DEPTH_BELOW_TERRAIN;
@@ -1647,7 +1647,7 @@ namespace VerdantsAscent.Water.Core
                     // interpolation pulled a cell too low (e.g. because terrain
                     // on a bank slope pulled the nearest-disk average down),
                     // we need to raise it back to the flat cross-section level.
-                    // Real water is flat � every cell at the same longitudinal
+                    // Real water is flat - every cell at the same longitudinal
                     // position must be at the same height.
                     float strength = DEPTH_NORM_STRENGTH * edgeFactor;
                     float newSurface = surfaceY + (targetY - surfaceY) * strength;
@@ -1721,7 +1721,7 @@ namespace VerdantsAscent.Water.Core
         /// from extending as a flat sheet through hillsides.
         ///
         /// Without this, the rectangular combiner grid fills the entire bounding box
-        /// with water � cells on steep valley walls get a surface Y interpolated from
+        /// with water - cells on steep valley walls get a surface Y interpolated from
         /// nearby river disks even though the real terrain is meters above the water.
         ///
         /// ALGORITHM:
@@ -1745,11 +1745,11 @@ namespace VerdantsAscent.Water.Core
 
                 float terrainY = _terrainHeights[i];
 
-                // Skip bank extensions � these are intentionally below terrain
+                // Skip bank extensions - these are intentionally below terrain
                 if (surfaceY < terrainY - 0.01f) continue;
 
                 // If terrain rises above the water surface, this cell is on a
-                // hillside or bank slope � remove the water entirely.
+                // hillside or bank slope - remove the water entirely.
                 if (terrainY > surfaceY + CLIP_TOLERANCE)
                 {
                     _surfaceHeights[i] = -100f;
@@ -1787,8 +1787,8 @@ namespace VerdantsAscent.Water.Core
                         float sum = 0f;
                         float weightSum = 0f;
 
-                        // Tight �1 cell neighborhood � prevents pulling from distant cells.
-                        // CRITICAL: Skip bank extension neighbors (below terrain) � they
+                        // Tight +/-1 cell neighborhood - prevents pulling from distant cells.
+                        // CRITICAL: Skip bank extension neighbors (below terrain) - they
                         // are NOT part of the water surface and their terrain-relative
                         // heights pull the average toward bank terrain elevation,
                         // causing the visible "water riding up the banks" artifact.
@@ -1806,7 +1806,7 @@ namespace VerdantsAscent.Water.Core
 
                                 if (_surfaceHeights[nidx] > -50f)
                                 {
-                                    // Skip bank extension neighbors � they're below
+                                    // Skip bank extension neighbors - they're below
                                     // terrain intentionally for clipping, not real surface
                                     float nTerrainY = _terrainHeights[nidx];
                                     if (_surfaceHeights[nidx] < nTerrainY && !isBankExtension)
@@ -2540,7 +2540,7 @@ namespace VerdantsAscent.Water.Core
         /// Sets up the swim trigger using segmented BoxColliders.
         /// 
         /// KEY FIX: The trigger top is capped at the resting water surface height,
-        /// NOT above it. Waves animate on the visual mesh only � the trigger stays
+        /// NOT above it. Waves animate on the visual mesh only - the trigger stays
         /// at the still water level so players on banks above the water never
         /// intersect the trigger. OnTriggerStay + GetWaterSurfaceAt() handles
         /// precise wave-adjusted water level reporting.
@@ -2620,7 +2620,7 @@ namespace VerdantsAscent.Water.Core
 
             float totalX = maxX - minX + _cellSize;
             float totalZ = maxZ - minZ + _cellSize;
-            // KEY FIX: trigger top is at the resting water surface � NOT above it.
+            // KEY FIX: trigger top is at the resting water surface - NOT above it.
             // Waves on the visual mesh rise above this, but the trigger stays put.
             float triggerBottom = minSurfaceY - SWIM_TRIGGER_MAX_DEPTH;
             float triggerTop = maxSurfaceY;
@@ -2634,7 +2634,7 @@ namespace VerdantsAscent.Water.Core
             // path below so the trigger area approximates the actual
             // circular shape via 2m segments.
 
-            // Large water body or river � split into multiple BoxCollider segments
+            // Large water body or river - split into multiple BoxCollider segments
             int segsX = Mathf.Max(1, Mathf.CeilToInt(totalX / SWIM_TRIGGER_MAX_SEGMENT));
             int segsZ = Mathf.Max(1, Mathf.CeilToInt(totalZ / SWIM_TRIGGER_MAX_SEGMENT));
             float segSizeX = totalX / segsX;
@@ -2840,7 +2840,7 @@ namespace VerdantsAscent.Water.Core
         {
             float distToWater = waterSurfaceY - characterPos.y;
 
-            // If water is close (within 5m above), don't bother checking � allow it
+            // If water is close (within 5m above), don't bother checking - allow it
             if (distToWater <= 5f)
                 return false;
 
@@ -2899,7 +2899,7 @@ namespace VerdantsAscent.Water.Core
                 // CAVE FIX: Check if terrain blocks the path to water
                 if (IsBlockedByTerrain(t.position, waterLevel))
                 {
-                    // Blocked � if they were previously tracked, remove them
+                    // Blocked - if they were previously tracked, remove them
                     if (_inWater.Remove(interactable))
                     {
                         if (interactable.Decrement(_liquidType) == 0)
@@ -2910,7 +2910,7 @@ namespace VerdantsAscent.Water.Core
                     return;
                 }
 
-                // Still in valid water � update level
+                // Still in valid water - update level
                 if (!_inWater.Contains(interactable))
                 {
                     // Entered water area (can happen if they walked into disk range
@@ -2934,7 +2934,7 @@ namespace VerdantsAscent.Water.Core
             else if (_inWater.Contains(interactable))
             {
                 // Was in water but moved outside disk geometry while still inside
-                // the box trigger � clear their water state immediately.
+                // the box trigger - clear their water state immediately.
                 _inWater.Remove(interactable);
                 if (interactable.Decrement(_liquidType) == 0)
                 {

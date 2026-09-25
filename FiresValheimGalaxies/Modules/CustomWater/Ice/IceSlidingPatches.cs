@@ -100,7 +100,7 @@ namespace VerdantsAscent.Water.Core
                 return;
             }
 
-            // Check for legacy ice data (va_is_custom_ice) — auto-migrate to new controllers
+            // Check for legacy ice data (va_is_custom_ice) - auto-migrate to new controllers
             if (!HasLegacyIceData(__instance.GetZDO()))
                 return;
 
@@ -116,8 +116,8 @@ namespace VerdantsAscent.Water.Core
             if (MigrateLegacyIceZDO(__instance))
                 return;
 
-            // Migration failed — log warning (legacy data will be lost)
-            Debug.LogWarning($"[IceSlidingPatches] Failed to migrate legacy ice ZDO at {__instance.transform.position} — ice data lost");
+            // Migration failed - log warning (legacy data will be lost)
+            Debug.LogWarning($"[IceSlidingPatches] Failed to migrate legacy ice ZDO at {__instance.transform.position} - ice data lost");
         }
 
         #endregion
@@ -174,7 +174,7 @@ namespace VerdantsAscent.Water.Core
                 zdo.Set(s_floatIceHash, true);
                 zdo.Set(s_floatIceFpHash, fpData);
                 zdo.Set(s_floatIceSeedHash, noiseSeed);
-                // No height grid — the new controller will init a flat grid in LoadFromZDO
+                // No height grid - the new controller will init a flat grid in LoadFromZDO
 
                 nview.gameObject.AddComponent<FloatingIceController>();
                 Debug.Log($"[IceSlidingPatches] Migrated legacy floating ice ZDO at {nview.transform.position}");
@@ -184,7 +184,7 @@ namespace VerdantsAscent.Water.Core
                 zdo.Set(s_landIceHash, true);
                 zdo.Set(s_landIceFpHash, fpData);
                 zdo.Set(s_landIceSeedHash, noiseSeed);
-                // No height grid — the new controller will init from terrain raycasts in LoadFromZDO
+                // No height grid - the new controller will init from terrain raycasts in LoadFromZDO
 
                 nview.gameObject.AddComponent<LandIceController>();
                 Debug.Log($"[IceSlidingPatches] Migrated legacy land ice ZDO at {nview.transform.position}");
@@ -322,7 +322,7 @@ namespace VerdantsAscent.Water.Core
         private static bool Character_UpdateBodyFriction_Prefix(Character __instance, CapsuleCollider ___m_collider)
         {
             if (!__instance.IsOnCustomIce())
-                return true; // Not on our ice — let vanilla handle it
+                return true; // Not on our ice - let vanilla handle it
 
             if (___m_collider == null || ___m_collider.material == null)
                 return true;

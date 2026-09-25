@@ -93,13 +93,13 @@ namespace VerdantsAscent.Terrain.Persistence
             }
         }
 
-        // ZoneSystem.SpawnZone signature: bool SpawnZone(Vector2i zoneID, SpawnMode mode, out GameObject root)
+        // ZoneSystem.SpawnZone signature: bool SpawnZone(Vector2s zoneID, SpawnMode mode, out GameObject root)
         // We piggyback on the existing ZoneStreamTiming patch site but with a
         // separate prefix class to keep concerns isolated.
         [HarmonyPatch(typeof(ZoneSystem), "SpawnZone")]
         private static class ZoneSystem_SpawnZone_Proactive
         {
-            private static void Postfix(Vector2i zoneID, GameObject root, bool __result)
+            private static void Postfix(Vector2s zoneID, GameObject root, bool __result)
             {
                 if (!__result || root == null) return;
                 if (!EnsureReflection()) return;
@@ -112,7 +112,7 @@ namespace VerdantsAscent.Terrain.Persistence
 
         // Find every VATile ZDO whose sector key == this zone's, enqueue
         // ones not already instantiated. Cheap O(N) over sector ZDOs.
-        private static void ScanSectorAndEnqueue(Vector2i sector)
+        private static void ScanSectorAndEnqueue(Vector2s sector)
         {
             var list = new List<ZDO>();
             try

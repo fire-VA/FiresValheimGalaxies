@@ -15,8 +15,8 @@ namespace VerdantsAscent.Terrain.Persistence
     // Zero overhead when our anchors are not in the zone.
     public static class ZoneStreamTiming
     {
-        private static readonly Dictionary<Vector2i, float> _zoneActivatedAt =
-            new Dictionary<Vector2i, float>();
+        private static readonly Dictionary<Vector2s, float> _zoneActivatedAt =
+            new Dictionary<Vector2s, float>();
 
         // Anchor at world XZ (TileXZ.x * 64 + 32, _, TileXZ.y * 64 + 32) lives
         // in zone (TileXZ.x, TileXZ.y) too — both grids are 64m, our anchor
@@ -37,14 +37,16 @@ namespace VerdantsAscent.Terrain.Persistence
         // This works fine for ZoneSystem streaming (it still picks the right
         // zone), but for THIS timing helper we want to match TileXZ to the
         // zone vanilla actually streams it in. Hence the +1 offset below.
-        public static Vector2i ZoneFromAnchor(Vector2i tileXZ)
+        // Takes a TILE index (our own Vector2i grid) and returns a ZONE id, which 1.0 narrowed to Vector2s.
+        // The two coordinate spaces are separate and only this method crosses between them.
+        public static Vector2s ZoneFromAnchor(Vector2i tileXZ)
         {
             // Anchor world position is at tile center (tileXZ * 64 + 32).
             // Vanilla GetZone = floor((p + 32) / 64) = tileXZ + 1.
-            return new Vector2i(tileXZ.x + 1, tileXZ.y + 1);
+            return new Vector2s(tileXZ.x + 1, tileXZ.y + 1);
         }
 
-        public static float MillisSinceZoneActive(Vector2i zoneKey)
+        public static float MillisSinceZoneActive(Vector2s zoneKey)
         {
             if (_zoneActivatedAt.TryGetValue(zoneKey, out float t))
                 return (Time.realtimeSinceStartup - t) * 1000f;
@@ -58,9 +60,9 @@ namespace VerdantsAscent.Terrain.Persistence
         [HarmonyPatch(typeof(ZoneSystem), "SpawnZone")]
         private static class ZoneSystem_SpawnZone_RecordActivation
         {
-            // SpawnZone signature: bool SpawnZone(Vector2i zoneID, SpawnMode mode, out GameObject root)
+            // SpawnZone signature: bool SpawnZone(Vector2s zoneID, SpawnMode mode, out GameObject root)
             // __result == true means the zone was successfully spawned.
-            private static void Postfix(Vector2i zoneID, GameObject root, bool __result)
+            private static void Postfix(Vector2s zoneID, GameObject root, bool __result)
             {
                 if (!__result || root == null) return;
                 if (_zoneActivatedAt.ContainsKey(zoneID)) return;

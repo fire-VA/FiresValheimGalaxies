@@ -141,13 +141,7 @@ namespace VerdantsAscent.Terrain.Biome
                     if (world != null)
                     {
                         worldName = world.m_name;
-                        // Public test refactor: World.GetWorldSavePath(FileSource) was moved
-                        // to SaveSystem.GetWorldsSaveRootPath(FileSource). Same shape, new home.
-#if PUBLIC_TEST
                         string worldFolder = SaveSystem.GetWorldsSaveRootPath(world.m_fileSource);
-#else
-                        string worldFolder = World.GetWorldSavePath(world.m_fileSource);
-#endif
                         if (!string.IsNullOrEmpty(worldFolder) && !string.IsNullOrEmpty(worldName))
                         {
                             return Path.Combine(worldFolder, worldName + FILE_EXTENSION);
@@ -168,11 +162,7 @@ namespace VerdantsAscent.Terrain.Biome
                         if (world != null)
                         {
                             worldName = world.m_name;
-#if PUBLIC_TEST
                             string worldFolder = SaveSystem.GetWorldsSaveRootPath(world.m_fileSource);
-#else
-                            string worldFolder = World.GetWorldSavePath(world.m_fileSource);
-#endif
                             if (!string.IsNullOrEmpty(worldFolder) && !string.IsNullOrEmpty(worldName))
                             {
                                 return Path.Combine(worldFolder, worldName + FILE_EXTENSION);

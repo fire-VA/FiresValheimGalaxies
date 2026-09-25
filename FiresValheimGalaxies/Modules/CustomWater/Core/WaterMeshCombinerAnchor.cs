@@ -55,7 +55,7 @@ namespace VerdantsAscent.Water.Core
 
         // Monolithic storage threshold: grids with uncompressed height data ? this size
         // use the legacy single-ZDO approach. Larger grids use segment anchors.
-        // 8KB / 8 bytes per cell (surface + terrain, 4 bytes each) = 1024 cells = ~32�32
+        // 8KB / 8 bytes per cell (surface + terrain, 4 bytes each) = 1024 cells = ~32x32
         private const int MONOLITHIC_CELL_THRESHOLD = 1024;
 
         // Maximum segment anchors per combiner to prevent ZDO spam
@@ -65,7 +65,7 @@ namespace VerdantsAscent.Water.Core
         private const float SEGMENT_SPACING = 128f;
 
         // Prefab name to use for ZDO persistence
-        // Uses CustomRiver � it's on the "piece" layer (not terrain), so it won't
+        // Uses CustomRiver - it's on the "piece" layer (not terrain), so it won't
         // interfere with terrain raycasts or pull river water down to anchor Y.
         // The dirtfloor prefab was on the "terrain" layer which caused river surface
         // heights to get pulled down to the anchor's hidden Y=-10 position.
@@ -97,7 +97,7 @@ namespace VerdantsAscent.Water.Core
 
         // Static flag: when true, the next WaterMeshCombinerAnchor.Awake() call should
         // NOT self-destruct even if isAnchor is false in the ZDO (because we haven't
-        // set it yet � the ZDO flags get set after Instantiate returns).
+        // set it yet - the ZDO flags get set after Instantiate returns).
         private static bool s_nextInstantiateIsPending = false;
 
         /// <summary>
@@ -335,7 +335,7 @@ namespace VerdantsAscent.Water.Core
                     if (WaterMeshCombiner.s_verboseLogging) Debug.Log($"[WaterMeshCombinerAnchor] Start: Restored from file cache at {myPos} ({cachedData.WaterDiskData?.Length / WaterCombinerCache.WaterCombinerGroupData.DISK_STRIDE ?? 0} disks)");
                     return;
                 }
-                // Cache restore failed � fall through to ZDO restoration
+                // Cache restore failed - fall through to ZDO restoration
             }
 
             // Check if we have saved data to restore from ZDO (fallback)
@@ -348,7 +348,7 @@ namespace VerdantsAscent.Water.Core
             }
             else if (version == 0 && !_dataLoaded)
             {
-                // No ZDO data AND no cache � check if cache has anything at all for diagnostic
+                // No ZDO data AND no cache - check if cache has anything at all for diagnostic
                 Debug.LogWarning($"[WaterMeshCombinerAnchor] Start: ZDO {zdoId} has isAnchor=true but version=0 and no cache! " +
                     $"Anchor data was never saved. Pos={myPos}, isOwner={_nview.IsOwner()}");
             }
@@ -884,7 +884,7 @@ namespace VerdantsAscent.Water.Core
 
             if (zdoids.Count == 0 && segmentCount == 0)
             {
-                // No segments � this shouldn't happen for v3 with large grids
+                // No segments - this shouldn't happen for v3 with large grids
                 return;
             }
 
@@ -1074,7 +1074,7 @@ namespace VerdantsAscent.Water.Core
             // Diagnostic logging
             byte[] gridDataBytes = zdo.GetByteArray(s_gridDataHash);
             byte[] disksBytes = zdo.GetByteArray(s_waterDisksHash);
-            if (WaterMeshCombiner.s_verboseLogging) Debug.Log($"[WaterMeshCombinerAnchor] RestoreFromZDOAsync: ZDO data � " +
+            if (WaterMeshCombiner.s_verboseLogging) Debug.Log($"[WaterMeshCombinerAnchor] RestoreFromZDOAsync: ZDO data - " +
                 $"gridData={gridDataBytes?.Length ?? 0}, disks={disksBytes?.Length ?? 0} | " +
                 $"hasGridData={hasGridData}, diskCount={diskCount}, version={version}, " +
                 $"segmented={isSegmented}, segments={segmentCount}, " +
@@ -1190,7 +1190,7 @@ namespace VerdantsAscent.Water.Core
                 }
             }
 
-            // All retries exhausted � ZDO byte arrays will never sync to non-owners.
+            // All retries exhausted - ZDO byte arrays will never sync to non-owners.
             // FALLBACK: Request disk data from server via RPC. The server has the
             // authoritative disk list in its WaterOperationRPC cache. The client
             // receives the disks and regenerates the mesh locally via terrain sampling.
@@ -1202,11 +1202,11 @@ namespace VerdantsAscent.Water.Core
             {
                 // Request disks from server for this specific anchor position
                 WaterOperationRPC.RequestDiskSyncForPosition(combinerPosition, _combiner);
-                // Don't destroy the combiner � the RPC callback will populate it
+                // Don't destroy the combiner - the RPC callback will populate it
             }
             else if (_combiner != null)
             {
-                // Single player with no data � genuinely broken
+                // Single player with no data - genuinely broken
                 Debug.LogWarning($"[WaterMeshCombinerAnchor] Single player with no data for anchor at {combinerPosition}. Destroying empty combiner.");
                 Destroy(_combiner.gameObject);
                 _combiner = null;
@@ -1586,10 +1586,10 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Finds a prefab to use for anchor ZDO.
-        /// Prefers CustomRiver � it's on the "piece" layer so it won't interfere
+        /// Prefers CustomRiver - it's on the "piece" layer so it won't interfere
         /// with terrain raycasts (the old dirtfloor prefab was on "terrain" layer
         /// which caused river surfaces to get pulled down to anchor Y=-10).
-        /// Does NOT fall back to dirtfloor � using dirtfloor caused water anchors to
+        /// Does NOT fall back to dirtfloor - using dirtfloor caused water anchors to
         /// spawn as terrain pieces and interfere with the terrain system.
         /// Result is cached after first successful lookup.
         /// </summary>

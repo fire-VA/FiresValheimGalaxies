@@ -180,7 +180,7 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Tracks which grid rows have been modified since the last save.
-        /// Used for partial segment saves � only dirty segments are written.
+        /// Used for partial segment saves - only dirty segments are written.
         /// -1 means no dirty rows. Updated by MopWaterAt and ForceRegenerate.
         /// </summary>
         private int _dirtyRowMin = -1;
@@ -210,12 +210,12 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Ambient VFX controller (shoreline splash, waterfall spray, surface debris, audio).
-        /// Ephemeral � no ZDO, no persistence. Rebuilt after each mesh regeneration.
+        /// Ephemeral - no ZDO, no persistence. Rebuilt after each mesh regeneration.
         /// </summary>
         private WaterAmbientVFX _ambientVFX;
 
         /// <summary>
-        /// Lava water overlay � thin water layer rendered above the lava surface.
+        /// Lava water overlay - thin water layer rendered above the lava surface.
         /// The water shader's refraction over the opaque lava material produces a
         /// phenomenal molten-glass look. Only created when CustomLiquidType == Lava.
         /// </summary>
@@ -641,7 +641,7 @@ namespace VerdantsAscent.Water.Core
                 return float.MinValue;
 
             // CRITICAL: Check if position is actually within a water disk's geometry.
-            // The bounding box is rectangular but water disks are circular � without this
+            // The bounding box is rectangular but water disks are circular - without this
             // check, players in the corners of the bounding box (far from any disk) would
             // still get a valid water level and swim in the air.
             if (!IsWithinAnyDiskRadius(worldPos))
@@ -717,7 +717,7 @@ namespace VerdantsAscent.Water.Core
                 return false;
 
             // CRITICAL: Check actual disk geometry, not just bounding box.
-            // The bounding box is rectangular but disks are circular � corners of the
+            // The bounding box is rectangular but disks are circular - corners of the
             // bounding box extend far beyond any actual water.
             if (!IsWithinAnyDiskRadius(worldPos))
                 return false;
@@ -739,7 +739,7 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Checks if a world position is within ANY water disk's radius (+ blend distance).
-        /// This is the true geometry check � water disks are circular, not rectangular.
+        /// This is the true geometry check - water disks are circular, not rectangular.
         /// Used to prevent false positives from the rectangular bounding box.
         /// </summary>
         private bool IsWithinAnyDiskRadius(Vector3 worldPos)
@@ -1031,7 +1031,7 @@ namespace VerdantsAscent.Water.Core
             // Start() will skip the add if already present.
             s_allCombiners.Add(newCombiner);
 
-            // DON'T create anchor yet � defer until debounce timer fires.
+            // DON'T create anchor yet - defer until debounce timer fires.
             // This prevents creating an anchor that immediately gets more disks added
             // during rapid click-and-hold placement.
             newCombiner.QueueDebouncedSave();
@@ -1103,7 +1103,7 @@ namespace VerdantsAscent.Water.Core
             {
                 if (combiner == null) continue;
 
-                // Use XZ distance only � water bodies at different elevations
+                // Use XZ distance only - water bodies at different elevations
                 // (e.g. rivers at Y=30 vs mountains at Y=5000) should still be
                 // found by horizontal radius searches.
                 Vector3 pos = combiner.transform.position;
@@ -1628,7 +1628,7 @@ namespace VerdantsAscent.Water.Core
             }
             frozen.Initialize(this);
 
-            // Hide the water mesh � ice/snow replaces it visually
+            // Hide the water mesh - ice/snow replaces it visually
             if (_meshRenderer != null)
                 _meshRenderer.enabled = false;
         }
@@ -1946,7 +1946,7 @@ namespace VerdantsAscent.Water.Core
             if (_waterDisks.Count == 0) return;
 
             // Only the server/host persists water. Remote clients just have the
-            // visual combiner � they don't own the anchor ZDO and the CustomRiver
+            // visual combiner - they don't own the anchor ZDO and the CustomRiver
             // prefab lookup would fail because registration timing differs.
             if (ZNet.instance != null && !ZNet.instance.IsServer()) return;
 
@@ -2009,7 +2009,7 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Marks a range of grid rows as dirty (modified since last save).
-        /// Used for partial segment saves � only segments covering dirty rows are written.
+        /// Used for partial segment saves - only segments covering dirty rows are written.
         /// </summary>
         public void MarkRowsDirty(int rowMin, int rowMax)
         {

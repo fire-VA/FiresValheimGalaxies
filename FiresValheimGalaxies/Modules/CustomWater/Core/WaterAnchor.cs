@@ -450,7 +450,7 @@ namespace VerdantsAscent.Water.Core
         /// <summary>
         /// Finds a prefab to use for anchor ZDO.
         /// Uses CustomRiver prefab (piece layer) to avoid terrain raycast interference.
-        /// Does NOT fall back to dirtfloor — using dirtfloor caused water anchors to
+        /// Does NOT fall back to dirtfloor - using dirtfloor caused water anchors to
         /// spawn as terrain pieces and interfere with the terrain system.
         /// </summary>
         private static GameObject FindAnchorPrefab()

@@ -10,7 +10,7 @@ namespace VerdantsAscent.Water.Core
 {
     /// <summary>
     /// File-based cache for WaterMeshCombiner data.
-    /// Mirrors DirtFloorCombinerCache — stores water disk and grid data locally so
+    /// Mirrors DirtFloorCombinerCache - stores water disk and grid data locally so
     /// clients can restore water without relying on ZDO byte array sync (which is
     /// unreliable for large payloads).
     ///
@@ -185,7 +185,7 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Gets cached data for an anchor at a given position.
-        /// Used for cache-first loading — check cache before ZDO restoration.
+        /// Used for cache-first loading - check cache before ZDO restoration.
         /// </summary>
         public static WaterCombinerGroupData GetCachedDataForPosition(Vector3 position, float searchRadius = 5f)
         {
@@ -247,7 +247,7 @@ namespace VerdantsAscent.Water.Core
 
             if (groupId < 0)
             {
-                // New combiner — assign a group
+                // New combiner - assign a group
                 groupId = _nextGroupId++;
                 _groupToCombiners[groupId] = combiner;
                 groupData = new WaterCombinerGroupData { GroupId = groupId };
@@ -331,7 +331,7 @@ namespace VerdantsAscent.Water.Core
             if (groupIdToRemove >= 0)
             {
                 // Update cache with final state before removing runtime reference.
-                // Do NOT trigger an immediate save — zone unloads are frequent and
+                // Do NOT trigger an immediate save - zone unloads are frequent and
                 // saving the full cache for each one is wasteful. The periodic
                 // Update() timer will batch-save all dirty groups together.
                 UpdateCombinerCache(combiner);

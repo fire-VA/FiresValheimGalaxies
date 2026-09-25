@@ -231,13 +231,13 @@ namespace VerdantsAscent.Water.Core
             UpdateMoonTransform(cam);
         }
 
-        // Crank WearNTear health to effectively-invincible. The prefab
-        // ships with m_health = 1500 (vanilla floor default) which a
-        // determined player could pickaxe through. The moon is an
-        // immovable celestial body; it should not be destructible by
-        // hand tools. Set health to int.MaxValue rather than disabling
-        // WearNTear entirely so existing network/support logic keeps
-        // working — just nothing the player can do touches the number.
+        // Make the moon indestructible without disabling WearNTear, so its
+        // network logic keeps working. The prefab ships with m_health = 1500
+        // (vanilla floor default), which a determined player could pickaxe
+        // through. Hits are stopped by max health plus Immune modifiers.
+        // Wear ignores both: it deals a percentage of m_health, and an
+        // unsupported piece takes 100% on its first tick, so every wear
+        // source is switched off separately.
         private static void MakeMoonInvincible(GameObject root)
         {
             if (root == null) return;
@@ -246,12 +246,12 @@ namespace VerdantsAscent.Water.Core
             {
                 if (wearComps[i] == null) continue;
                 wearComps[i].m_health = float.MaxValue;
-                // No-support immune so moons floating in space don't
-                // crumble from missing structural support.
-                wearComps[i].m_noSupportWear = true;
-                // Already true in prefab but assert here so future prefab
-                // re-clones don't accidentally re-introduce wear sources.
-                wearComps[i].m_noRoofWear    = true;
+                // The support/roof wear flags read backwards: false is what
+                // turns that wear OFF, so a moon floating in space never crumbles.
+                wearComps[i].m_noSupportWear    = false;
+                wearComps[i].m_noRoofWear       = false;
+                wearComps[i].m_ashDamageImmune  = true;
+                wearComps[i].m_snowDamageImmune = true;
                 // Damage resistances: everything goes to Immune so even
                 // arrow-spam, fire, frost, lightning, etc. do nothing.
                 wearComps[i].m_damages = new HitData.DamageModifiers
@@ -353,8 +353,8 @@ namespace VerdantsAscent.Water.Core
                 // ZNetView lets multiplayer sync placement.
                 //
                 // We only adjust TWO things on the instance:
-                //   1) WearNTear health → effectively invincible so the
-                //      moon can't be pickaxe-killed
+                //   1) WearNTear → invincible (no hit damage, no wear) so
+                //      the moon can't be pickaxe-killed or crumble
                 //   2) LODGroup minimum screen height → zero, so the moon
                 //      keeps rendering at ANY apparent distance
                 MakeMoonInvincible(MoonInstance);

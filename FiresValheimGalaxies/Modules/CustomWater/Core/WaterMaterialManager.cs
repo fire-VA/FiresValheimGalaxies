@@ -640,7 +640,7 @@ namespace VerdantsAscent.Water.Core
 
         /// <summary>
         /// Tunes an ice material after capture to reduce excessive reflectivity/brightness.
-        /// Vanilla ice materials can be blindingly white and shiny � this brings them to
+        /// Vanilla ice materials can be blindingly white and shiny - this brings them to
         /// a level where the surface texture is visible even in daylight.
         /// </summary>
         private static void TuneIceMaterial(Material mat)
@@ -885,7 +885,7 @@ namespace VerdantsAscent.Water.Core
         }
 
         /// <summary>
-        /// Creates boiling water material � tinted orange version of captured water material.
+        /// Creates boiling water material - tinted orange version of captured water material.
         /// </summary>
         private static Material CreateBoilingFallback()
         {
@@ -922,7 +922,7 @@ namespace VerdantsAscent.Water.Core
         }
 
         /// <summary>
-        /// Creates freezing water material � tinted deep blue version of captured water material.
+        /// Creates freezing water material - tinted deep blue version of captured water material.
         /// </summary>
         private static Material CreateFreezingFallback()
         {

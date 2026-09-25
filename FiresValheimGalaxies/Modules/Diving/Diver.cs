@@ -68,7 +68,23 @@ namespace VerdantsAscent.Diving
             => player.InWater() && !player.IsOnGround() && player.IsSwimming();
 
         public bool IsInsideLiquid()
-            => Mathf.Max(0f, player.GetLiquidLevel() - player.transform.position.y) > DefaultSwimDepth;
+        {
+            float surface = player.GetLiquidLevel();
+            float sub = Mathf.Max(0f, surface - player.transform.position.y);
+            if (sub > DefaultSwimDepth) return true;
+            // Shallow columns (generated rivers run ~1.1m deep): the fixed
+            // threshold could NEVER arm there, so every hold gate bailed and
+            // releasing dive snapped the body back to the surface. Arm once
+            // submerged near the local bottom instead — the threshold scales
+            // to the column, floored so ankle water cannot arm it.
+            if (ZoneSystem.instance != null
+                && ZoneSystem.instance.GetSolidHeight(player.transform.position, out float ground))
+            {
+                float column = surface - ground;
+                if (column > 0.9f && sub > Mathf.Max(0.55f, column - 0.45f)) return true;
+            }
+            return false;
+        }
 
         public bool IsUnderSurface() => player.m_swimDepth > DefaultSwimDepth;
         public bool IsDiving()       => player.m_swimDepth > DivingSwimDepth;
@@ -175,7 +191,13 @@ namespace VerdantsAscent.Diving
         // expose us drags us down ("drop only if a wave would pull us out").
         public void Coast()
         {
-            float surfaceY = Floating.GetLiquidLevel(player.transform.position);
+            // The CHARACTER's liquid level — fed by the generated-water swim
+            // router. Floating.GetLiquidLevel(pos) only knows vanilla
+            // WaterVolumes: rivers returned -10000, Coast bailed every frame,
+            // nothing maintained the hold, and vanilla floated the body back
+            // to the surface — the "forced up the second we release" report.
+            // Ocean never showed it because ocean HAS a WaterVolume.
+            float surfaceY = player.GetLiquidLevel();
             if (surfaceY <= -1000f) { m_holdingDepth = false; return; }   // no water here
 
             if (!m_holdingDepth)

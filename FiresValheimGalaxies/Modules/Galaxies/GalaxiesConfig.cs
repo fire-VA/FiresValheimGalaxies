@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using FiresCore.Sync;
 
 namespace VerdantsAscent.Galaxies
 {

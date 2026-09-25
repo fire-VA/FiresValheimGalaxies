@@ -9,7 +9,7 @@ namespace VerdantsAscent.Water.Core
     /// <summary>
     /// Handles multiplayer RPC synchronization for ALL custom water operations.
     /// 
-    /// ARCHITECTURE (Server Authority � mirrors Valheim terrain):
+    /// ARCHITECTURE (Server Authority - mirrors Valheim terrain):
     /// 1. Client applies locally for instant visual feedback
     /// 2. Client sends _Request RPC to SERVER ONLY
     /// 3. Server validates, stores in cache, persists to ZDO anchor
@@ -26,13 +26,13 @@ namespace VerdantsAscent.Water.Core
     {
         private static bool _initialized = false;
 
-        // RPC names � Client ? Server (requests)
+        // RPC names - Client ? Server (requests)
         private const string RPC_CREATE_WATER = "FiresAdminTerrain_Water_Create";
         private const string RPC_REMOVE_WATER = "FiresAdminTerrain_Water_Remove";
         private const string RPC_MODIFY_WATER = "FiresAdminTerrain_Water_Modify";
         private const string RPC_CLEAR_ZONE_WATER = "FiresAdminTerrain_Water_ClearZone";
 
-        // RPC names � Server ? All Clients (confirmed broadcasts)
+        // RPC names - Server ? All Clients (confirmed broadcasts)
         private const string RPC_CREATE_CONFIRMED = "FiresAdminTerrain_Water_CreateOK";
         private const string RPC_REMOVE_CONFIRMED = "FiresAdminTerrain_Water_RemoveOK";
         private const string RPC_MODIFY_CONFIRMED = "FiresAdminTerrain_Water_ModifyOK";
@@ -142,7 +142,7 @@ namespace VerdantsAscent.Water.Core
 
             if (IsServer())
             {
-                // We ARE the server � handle directly and broadcast to clients
+                // We ARE the server - handle directly and broadcast to clients
                 ServerHandleCreateAndBroadcast(disk, GetLocalPlayerId());
             }
             else
@@ -157,7 +157,7 @@ namespace VerdantsAscent.Water.Core
         /// <summary>
         /// Requests creation of a water disk with a custom liquid type already set.
         /// The custom type is applied to both the disk and the combiner BEFORE mesh generation,
-        /// so the correct material/behavior is used from the first frame � no "flash of water then swap".
+        /// so the correct material/behavior is used from the first frame - no "flash of water then swap".
         /// </summary>
         /// <returns>The stable hash of the created disk</returns>
         public static int RequestCreateWaterWithCustomType(Vector3 position, WaterDisk disk, CustomLiquidType customType)
@@ -172,7 +172,7 @@ namespace VerdantsAscent.Water.Core
             // Ensure the disk has the custom type set
             disk.CustomLiquidType = customType;
 
-            // Apply locally � GetOrCreateCombinerFor adds the disk to a combiner
+            // Apply locally - GetOrCreateCombinerFor adds the disk to a combiner
             var combiner = WaterMeshCombiner.GetOrCreateCombinerFor(disk);
 
             // Set the custom liquid type on the combiner IMMEDIATELY (before mesh regen)
@@ -330,7 +330,7 @@ namespace VerdantsAscent.Water.Core
 
         #endregion
 
-        #region RPC Handlers � Client ? Server (request handlers, server-only)
+        #region RPC Handlers - Client ? Server (request handlers, server-only)
 
         /// <summary>
         /// SERVER: Receives create request from a client, validates, caches, persists, broadcasts.
@@ -527,10 +527,10 @@ namespace VerdantsAscent.Water.Core
 
         #endregion
 
-        #region RPC Handlers � Server ? Client (confirmed broadcasts)
+        #region RPC Handlers - Server ? Client (confirmed broadcasts)
 
         /// <summary>
-        /// CLIENT: Server confirmed a water create � apply if not already applied locally.
+        /// CLIENT: Server confirmed a water create - apply if not already applied locally.
         /// </summary>
         private static void RPC_HandleCreateConfirmed(long sender, ZPackage pkg)
         {
@@ -631,7 +631,7 @@ namespace VerdantsAscent.Water.Core
                 float radius = pkg.ReadSingle();
                 long originPlayerId = pkg.ReadLong();
 
-                // Origin client already cleared locally � skip
+                // Origin client already cleared locally - skip
                 if (originPlayerId == GetLocalPlayerId()) return;
 
                 ClearWaterInRadius(center, radius);
@@ -649,12 +649,12 @@ namespace VerdantsAscent.Water.Core
         /// </summary>
         private static void RPC_HandleClearAllWater(long sender, ZPackage pkg)
         {
-            // Server already handled this locally � only clients need to process
+            // Server already handled this locally - only clients need to process
             if (IsServer()) return;
 
             try
             {
-                Debug.Log("[WaterOperationRPC] Received global water clear from server � destroying all local water and cache");
+                Debug.Log("[WaterOperationRPC] Received global water clear from server - destroying all local water and cache");
 
                 // Destroy all local combiners
                 var allCombiners = new List<WaterMeshCombiner>(WaterMeshCombiner.AllCombiners);
@@ -693,7 +693,7 @@ namespace VerdantsAscent.Water.Core
                 _appliedDiskHashes.Clear();
                 _serverWaterCache.Clear();
 
-                Debug.Log($"[WaterOperationRPC] Global water clear complete � {allCombiners.Count} combiners, {allAnchors.Length} anchors destroyed, file cache cleared");
+                Debug.Log($"[WaterOperationRPC] Global water clear complete - {allCombiners.Count} combiners, {allAnchors.Length} anchors destroyed, file cache cleared");
             }
             catch (Exception ex)
             {
@@ -1052,7 +1052,7 @@ namespace VerdantsAscent.Water.Core
                 }
                 else if (targetCombiner == null)
                 {
-                    // No pending combiner � create one from the received disks
+                    // No pending combiner - create one from the received disks
                     // Group disks and create combiners
                     var diskGroups = GroupDisksByOverlap(disks);
                     foreach (var group in diskGroups)

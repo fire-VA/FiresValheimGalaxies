@@ -577,11 +577,7 @@ namespace VerdantsAscent.Water.Tools
             // Also clear legacy water locally. ZoneSystem.GetZone returns
             // Vector2s on public test; convert back so CustomWaterManager's
             // Vector2i-keyed APIs stay unchanged.
-#if PUBLIC_TEST
             Vector2i zone = ZoneSystem.GetZone(playerPos).ToVector2i();
-#else
-            Vector2i zone = ZoneSystem.GetZone(playerPos);
-#endif
             CustomWaterManager.ClearZone(zone);
 
             Console.instance.Print($"Cleared all custom water in zone {zone}");
@@ -820,7 +816,7 @@ namespace VerdantsAscent.Water.Tools
             }
 
             combiner.SetCustomLiquidType(CustomLiquidType.Ice);
-            Console.instance.Print($"Froze water at {position:F1} � walk on it!");
+            Console.instance.Print($"Froze water at {position:F1} - walk on it!");
             return true;
         }
 
@@ -1362,7 +1358,7 @@ namespace VerdantsAscent.Water.Tools
             var existingCombiner = WaterMeshCombiner.GetCombinerAt(position);
             if (existingCombiner != null && existingCombiner.CustomLiquidType == liquidType)
             {
-                // Same type � just add the new disk without touching the liquid type
+                // Same type - just add the new disk without touching the liquid type
                 existingCombiner.AddWaterDisk(disk);
 
                 Console.instance.Print($"Extended {liquidType.GetDisplayName()}: {sizeDesc}, depth={maxDepth:F1}m at Y={position.y:F2}m");

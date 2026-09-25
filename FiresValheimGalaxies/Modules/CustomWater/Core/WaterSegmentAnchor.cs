@@ -95,7 +95,7 @@ namespace VerdantsAscent.Water.Core
             bool isSegment = _nview.GetZDO().GetBool(s_isSegmentHash, false);
 
             // If this is a segment anchor spawning from ZDO, strip it to invisible.
-            // Segments don't create combiners — they only store grid row data.
+            // Segments don't create combiners - they only store grid row data.
             if (isSegment)
             {
                 SegmentIndex = _nview.GetZDO().GetInt(s_segmentIndexHash, -1);
@@ -105,7 +105,7 @@ namespace VerdantsAscent.Water.Core
 
         private void Start()
         {
-            // Segments are passive data containers — no Start logic needed.
+            // Segments are passive data containers - no Start logic needed.
             // The primary anchor's RestoreFromZDOAsync reads segment data directly
             // from ZDOMan by ZDOID, without needing the segment GameObject.
         }

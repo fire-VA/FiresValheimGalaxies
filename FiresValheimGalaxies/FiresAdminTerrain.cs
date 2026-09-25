@@ -1,4 +1,5 @@
 using BepInEx;
+using FiresCore.Sync;
 using HarmonyLib;
 using System;
 using System.Collections;
@@ -38,7 +39,7 @@ namespace VerdantsAscent
     {
         public const string PluginGUID = "com.Fire.FiresValheimGalaxies";
         public const string PluginName = "FiresValheimGalaxies";
-        public const string PluginVersion = "0.1.15";
+        public const string PluginVersion = "0.1.25";
 
         public static readonly Harmony harmony = new Harmony(PluginGUID);
         public static FiresValheimGalaxies Instance { get; private set; }
@@ -126,6 +127,8 @@ namespace VerdantsAscent
             RootObject.AddComponent<VerdantsAscent.Galaxies.GalaxiesDebugVisualizer>();
 
             LoadAssets();
+
+            FiresCore.Materials.TerrainMaterialCache.MaterialCaptured += OnTerrainMaterialCaptured;
 
             // Tile-restore batch tracker — starts an infinite polling
             // coroutine that emits the 🪨 TILES banner whenever a wave
@@ -272,7 +275,7 @@ namespace VerdantsAscent
             // and persistence init when the real FAT plugin is loaded — it
             // registers these itself, and double-registration collides on console
             // commands and terrain ZDO persistence. Standalone Galaxies runs them.
-            int biomePersistOK = 0, biomePainterOK = 0, snowCmdsOK = 0, iceToolOK = 0, landSnowOK = 0;
+            int biomePersistOK = 0, biomePainterOK = 0, iceToolOK = 0, landSnowOK = 0;
             if (!fatPresent)
             {
 
@@ -300,22 +303,6 @@ namespace VerdantsAscent
                 catch (Exception ex)
                 {
                     Debug.LogError($"[{PluginName}] BiomeOverlayPainter.RegisterCommands threw: {ex.Message}");
-                }
-
-                // D6 — register /snow_* console commands. Previously
-                // SnowCommands.RegisterCommands() existed but was never
-                // called from anywhere; every snow command silently
-                // failed to bind.
-                try
-                {
-                    VerdantsAscent.Terrain.Snow.SnowCommands.RegisterCommands();
-                    snowCmdsOK = 1;
-                    if (FiresLogger.VerboseEnabled)
-                        Debug.Log($"[{PluginName}] SnowCommands console commands registered.");
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[{PluginName}] SnowCommands.RegisterCommands threw: {ex.Message}");
                 }
 
                 // 2026-05-25 round-19: WIRE UP the LandIce / FloatingIce
@@ -366,7 +353,7 @@ namespace VerdantsAscent
             // 🌌 GALAXIES mini-box — single visual summary of the tide add-on
             // plus the command sub-systems that came up. Per-line details
             // remain available via the verbose gate.
-            int commandSubsystems = biomePersistOK + biomePainterOK + snowCmdsOK + iceToolOK + landSnowOK;
+            int commandSubsystems = biomePersistOK + biomePainterOK + iceToolOK + landSnowOK;
             FiresCore.Logging.LoadSummary.For(PluginName).EmitMiniBox("🌌 GALAXIES", new[]
             {
                 "tide system live",
@@ -375,6 +362,9 @@ namespace VerdantsAscent
                 fatPresent ? "cmds: owned by FAT" : $"cmd subsystems ready: {commandSubsystems}",
                 fatPresent ? "deferring to FAT" : "full mode",
             });
+
+            try { VerdantsAscent.Utilities.GalaxiesHelpContent.Register(); }
+            catch (Exception ex) { Debug.LogWarning($"[{PluginName}] Help registration failed: {ex.Message}"); }
 
             // Compact "ready" banner — small ringed planet with
             // brand panel. Deferred to WORLD LOAD time (when
@@ -408,6 +398,8 @@ namespace VerdantsAscent
 
         private void OnDestroy()
         {
+            FiresCore.Materials.TerrainMaterialCache.MaterialCaptured -= OnTerrainMaterialCaptured;
+
             if (assetBundle != null)
             {
                 try { assetBundle.Unload(true); }
@@ -432,6 +424,12 @@ namespace VerdantsAscent
         }
 
         public AssetBundle GetAssetBundle() => assetBundle;
+
+        // Tiles that spawned on the fallback move to the captured material in one pass.
+        private static void OnTerrainMaterialCaptured(Material material)
+        {
+            TileMeshRenderer.UpgradeAllRenderersToCachedMaterial();
+        }
 
         private void LoadAssets()
         {

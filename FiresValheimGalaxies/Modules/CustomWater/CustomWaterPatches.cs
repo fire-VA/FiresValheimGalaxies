@@ -36,7 +36,7 @@ namespace VerdantsAscent.Water.Core
         /// 
         /// Uses THREE checks to prevent cave swimmers from being pulled up:
         /// 1. TerrainCaveDetector: If the LOCAL PLAYER is under custom terrain ceiling, block water above.
-        ///    ONLY used for the local player � NPCs skip this check because the detector
+        ///    ONLY used for the local player - NPCs skip this check because the detector
         ///    tracks the player's position, not the NPC's. Using it for NPCs would
         ///    incorrectly block their water detection whenever the player is in a cave.
         /// 2. Wading threshold: Water within 1.5m above is always allowed (normal wading).
@@ -105,7 +105,7 @@ namespace VerdantsAscent.Water.Core
 
             if (Physics.Raycast(rayStart, Vector3.up, out RaycastHit hit, rayDistance, s_terrainBlockingLayerMask))
             {
-                // Something solid is between us and the water � we're in a cave or under terrain
+                // Something solid is between us and the water - we're in a cave or under terrain
                 return true;
             }
 
@@ -295,7 +295,7 @@ namespace VerdantsAscent.Water.Core
 
         #region WaterVolume Integration
 
-        // DISABLED: WaterVolume.GetWaterSurface patch commented out � bounding box
+        // DISABLED: WaterVolume.GetWaterSurface patch commented out - bounding box
         // detection causes vanilla to think the player is in water from far away.
         //
         // [HarmonyPatch(typeof(WaterVolume), nameof(WaterVolume.GetWaterSurface), typeof(Vector3), typeof(float))]
@@ -325,7 +325,7 @@ namespace VerdantsAscent.Water.Core
 
         #region Status Effects
 
-        // DISABLED: UpdateWater postfix removed � it was redundantly pushing water levels
+        // DISABLED: UpdateWater postfix removed - it was redundantly pushing water levels
         // onto characters every frame using bounding-box detection, which caused false
         // swimming triggers in caves. The WaterCombinerTrigger (OnTriggerEnter/Stay/Exit)
         // already handles swim detection properly with its own terrain-blocking raycasts.
@@ -551,7 +551,7 @@ namespace VerdantsAscent.Water.Core
                 else
                 {
                     Debug.Log("[CustomWaterPatches] Water RPC and persistence initialized. " +
-                        "Cache deferred � world name not available yet (client connecting)");
+                        "Cache deferred - world name not available yet (client connecting)");
                 }
             }
             catch (System.Exception ex)
@@ -619,7 +619,7 @@ namespace VerdantsAscent.Water.Core
                 WaterCombinerCache.InitializeForWorld(worldName, worldSeed);
             }
 
-            // Delayed load � wait for world to be fully ready before restoring water from cache
+            // Delayed load - wait for world to be fully ready before restoring water from cache
             __instance.StartCoroutine(LoadWaterDataDelayed());
         }
 
@@ -644,7 +644,7 @@ namespace VerdantsAscent.Water.Core
 
             if (ZNet.instance == null || WorldGenerator.instance == null)
             {
-                Debug.Log("[CustomWaterPatches] World not ready for water data load � will load when zones spawn");
+                Debug.Log("[CustomWaterPatches] World not ready for water data load - will load when zones spawn");
                 yield break;
             }
 
@@ -732,7 +732,7 @@ namespace VerdantsAscent.Water.Core
                 // Force save all water combiners to their anchors
                 WaterPersistence.SaveWaterData();
 
-                // Save file cache synchronously (not async � we're shutting down)
+                // Save file cache synchronously (not async - we're shutting down)
                 WaterCombinerCache.SaveCache();
                 WaterCombinerCache.OnWorldUnload();
 

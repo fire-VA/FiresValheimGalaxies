@@ -37,13 +37,13 @@ namespace VerdantsAscent.Async
         /// <summary>
         /// Maximum milliseconds to spend executing dispatched actions per frame.
         /// Keeps the main thread responsive for network heartbeats and rendering.
-        /// Default 4ms — leaves ~12ms of a 60fps frame for game logic and rendering.
+        /// Default 4ms - leaves ~12ms of a 60fps frame for game logic and rendering.
         /// </summary>
         public static float MaxBudgetMs = 4f;
 
         /// <summary>
         /// Enqueues an action to be executed on the next main-thread Update().
-        /// Thread-safe — can be called from any thread.
+        /// Thread-safe - can be called from any thread.
         /// </summary>
         public static void Enqueue(Action action)
         {
@@ -113,7 +113,7 @@ namespace VerdantsAscent.Async
 
             if (_processingIndex >= _processingList.Count)
             {
-                // Nothing to process — reset for next frame.
+                // Nothing to process - reset for next frame.
                 _processingList.Clear();
                 _processingIndex = 0;
                 return;

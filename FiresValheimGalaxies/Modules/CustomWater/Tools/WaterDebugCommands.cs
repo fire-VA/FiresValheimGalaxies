@@ -111,31 +111,31 @@ namespace VerdantsAscent.Water.Core
             new Terminal.ConsoleCommand("va_clear_auto_water", "Permanently removes ALL custom water from the entire world (loaded + unloaded zones + save data). Clients send request to server via RPC.",
                 (args) => ClearAutoWaterCommand(args), isCheat: true);
 
-            // va_rivers � pings all vanilla river centers on minimap
+            // va_rivers - pings all vanilla river centers on minimap
             new Terminal.ConsoleCommand("va_rivers", "Pings all vanilla river positions on minimap",
                 (args) => PingRiversCommand(args), isCheat: false);
 
-            // va_streams � pings all vanilla stream centers on minimap
+            // va_streams - pings all vanilla stream centers on minimap
             new Terminal.ConsoleCommand("va_streams", "Pings all vanilla stream positions on minimap",
                 (args) => PingStreamsCommand(args), isCheat: false);
 
-            // va_lakes � pings all vanilla lake positions on minimap
+            // va_lakes - pings all vanilla lake positions on minimap
             new Terminal.ConsoleCommand("va_lakes", "Pings all vanilla lake positions on minimap",
                 (args) => PingLakesCommand(args), isCheat: false);
 
-            // va_find_water � lists nearest water combiners and offers teleport
+            // va_find_water - lists nearest water combiners and offers teleport
             new Terminal.ConsoleCommand("va_find_water", "Lists nearest auto-generated water bodies with distance and type. Optional: va_find_water tp <index> to teleport.",
                 (args) => FindWaterCommand(args), isCheat: true);
 
-            // va_dump_heightmap � exports BC heightmap and depression map to PNG
+            // va_dump_heightmap - exports BC heightmap and depression map to PNG
             new Terminal.ConsoleCommand("va_dump_heightmap", "Exports BC heightmap and depression map to PNG in FiresValheimGalaxies debug folder",
                 (args) => DumpHeightmapCommand(args), isCheat: true);
 
-            // va_build_height_cache � samples real terrain into a grid for depression analysis
+            // va_build_height_cache - samples real terrain into a grid for depression analysis
             new Terminal.ConsoleCommand("va_build_height_cache", "Samples WorldGenerator.GetHeight() into a grid for accurate river detection (includes ALL BC modifications)",
                 (args) => BuildHeightCacheCommand(args), isCheat: true);
 
-            // va_dump_world_heightcache � exports the world height cache to PNG for visualization
+            // va_dump_world_heightcache - exports the world height cache to PNG for visualization
             new Terminal.ConsoleCommand("va_dump_world_heightcache", "Exports WorldHeightCache (real terrain) to heightmap + depression map PNGs. Builds cache first if needed.",
                 (args) => DumpWorldHeightCacheCommand(args), isCheat: true);
 
@@ -211,7 +211,7 @@ namespace VerdantsAscent.Water.Core
 
             var river = CustomWaterManager.SpawnRiver(pos, size, flowDir, flowSpeed, persist);
 
-            args.Context.AddString($"Spawned river at {pos}, flow direction {flowDir}�, speed {flowSpeed} m/s" + (persist ? " (persistent)" : ""));
+            args.Context.AddString($"Spawned river at {pos}, flow direction {flowDir}\u00B0, speed {flowSpeed} m/s" + (persist ? " (persistent)" : ""));
         }
 
         private static void SpawnWaterfallCommand(Terminal.ConsoleEventArgs args)
@@ -318,7 +318,7 @@ namespace VerdantsAscent.Water.Core
             river.LiquidType = isTar ? LiquidType.Tar : LiquidType.Water;
 
             string liquidName = isTar ? "tar" : "water";
-            args.Context.AddString($"Placed {liquidName} river at {pos:F1}, flow {flow}�, speed {speed}m/s");
+            args.Context.AddString($"Placed {liquidName} river at {pos:F1}, flow {flow}\u00B0, speed {speed}m/s");
         }
 
         private static void PlaceWaterfallCommand(Terminal.ConsoleEventArgs args)
@@ -554,11 +554,7 @@ namespace VerdantsAscent.Water.Core
             // ClearZone now also handles WaterMeshCombiners with proper anchor cleanup.
             // ZoneSystem.GetZone returns Vector2s on public test; convert back so
             // CustomWaterManager's Vector2i-keyed APIs stay unchanged.
-#if PUBLIC_TEST
             Vector2i zone = ZoneSystem.GetZone(player.transform.position).ToVector2i();
-#else
-            Vector2i zone = ZoneSystem.GetZone(player.transform.position);
-#endif
             CustomWaterManager.ClearZone(zone);
 
             args.Context.AddString($"Cleared all custom water in zone {zone} (anchors destroyed)");
@@ -623,7 +619,7 @@ namespace VerdantsAscent.Water.Core
 
                 if (water is CustomRiverController river)
                 {
-                    args.Context.AddString($"  Flow direction: {river.FlowDirection}�");
+                    args.Context.AddString($"  Flow direction: {river.FlowDirection}\u00B0");
                     args.Context.AddString($"  Flow speed: {river.FlowSpeed} m/s");
                     args.Context.AddString($"  Flow force: {river.GetFlowForceAt(pos)}");
                 }
@@ -960,7 +956,7 @@ namespace VerdantsAscent.Water.Core
                 return;
             }
 
-            // We are the server/host � run clear directly.
+            // We are the server/host - run clear directly.
             int combinersBefore = WaterMeshCombiner.AllCombiners != null ? WaterMeshCombiner.AllCombiners.Count : 0;
 
             int loadedDestroyed, zdoDestroyed;
@@ -1184,7 +1180,7 @@ namespace VerdantsAscent.Water.Core
                 int diskCount = c.WaterDisks != null ? c.WaterDisks.Count : 0;
                 string liquidName = c.CustomLiquidType.GetDisplayName();
 
-                args.Context.AddString($"  [{i}] {dist:F0}m away � {liquidName}, {diskCount} disks, " +
+                args.Context.AddString($"  [{i}] {dist:F0}m away - {liquidName}, {diskCount} disks, " +
                     $"pos ({cPos.x:F0}, {cPos.y:F0}, {cPos.z:F0})");
             }
 
@@ -1206,13 +1202,13 @@ namespace VerdantsAscent.Water.Core
 
             if (WorldGenerator.instance == null)
             {
-                args.Context.AddString("WorldGenerator not available � must be in-game");
+                args.Context.AddString("WorldGenerator not available - must be in-game");
                 return;
             }
 
             // If we're a client, send an RPC to the server so the server builds its own cache.
             // The cache file is saved to the local filesystem, so the server must build it
-            // on the server's machine � a client-built cache is inaccessible to the server.
+            // on the server's machine - a client-built cache is inaccessible to the server.
             if (ZNet.instance != null && !ZNet.instance.IsServer())
             {
                 AutoWaterPatches.RequestBuildHeightCache();
@@ -1288,7 +1284,7 @@ namespace VerdantsAscent.Water.Core
                 // Auto-build the cache instead of just telling the user to run another command
                 if (WorldGenerator.instance == null)
                 {
-                    args.Context.AddString("WorldGenerator not available � must be in-game to build height cache.");
+                    args.Context.AddString("WorldGenerator not available - must be in-game to build height cache.");
                     return;
                 }
 
@@ -1311,7 +1307,7 @@ namespace VerdantsAscent.Water.Core
                     Debug.LogWarning($"[va_dump_world_heightcache] Failed to re-read config: {ex.Message}");
                 }
 
-                args.Context.AddString($"WorldHeightCache not built yet � building now ({WorldHeightCache.GridSize}x{WorldHeightCache.GridSize} grid)...");
+                args.Context.AddString($"WorldHeightCache not built yet - building now ({WorldHeightCache.GridSize}x{WorldHeightCache.GridSize} grid)...");
                 args.Context.AddString("This samples WorldGenerator.GetHeight() across the entire world.");
                 args.Context.AddString("Check console (F5) for progress. The dump will run automatically when done.");
 
@@ -1331,7 +1327,7 @@ namespace VerdantsAscent.Water.Core
                     }
                     else
                     {
-                        Debug.LogWarning("[va_dump_world_heightcache] Cache build failed � cannot export");
+                        Debug.LogWarning("[va_dump_world_heightcache] Cache build failed - cannot export");
                     }
                 }));
                 return;
@@ -1355,7 +1351,7 @@ namespace VerdantsAscent.Water.Core
         /// 1. Grayscale heightmap
         /// 2. Colorized heightmap (terrain + water level highlight)
         /// 3. Depression map (water candidate detection)
-        /// 4. Biome color map (if biome data is available � uses correct Valheim biome colors)
+        /// 4. Biome color map (if biome data is available - uses correct Valheim biome colors)
         /// Extracted so it can be called both directly and from the build-cache callback.
         /// </summary>
         private static void ExportWorldHeightCache(BCHeightmapWaterDetector.HeightmapSnapshot snapshot)
@@ -1432,31 +1428,31 @@ namespace VerdantsAscent.Water.Core
                     Color pixel;
                     if (h < waterLevel - 5f)
                     {
-                        // Deep underwater � dark blue
+                        // Deep underwater - dark blue
                         float depth01 = Mathf.Clamp01((waterLevel - h) / 60f);
                         pixel = new Color(0f, 0.05f, 0.2f + 0.4f * (1f - depth01));
                     }
                     else if (h < waterLevel)
                     {
-                        // Near water surface � lighter blue
+                        // Near water surface - lighter blue
                         float t = Mathf.Clamp01((waterLevel - h) / 5f);
                         pixel = Color.Lerp(new Color(0.2f, 0.5f, 0.3f), new Color(0.1f, 0.3f, 0.7f), t);
                     }
                     else if (h < waterLevel + 30f)
                     {
-                        // Low terrain � green
+                        // Low terrain - green
                         float t = (h - waterLevel) / 30f;
                         pixel = Color.Lerp(new Color(0.2f, 0.5f, 0.15f), new Color(0.4f, 0.55f, 0.2f), t);
                     }
                     else if (h < waterLevel + 80f)
                     {
-                        // Mid terrain � brown/gray
+                        // Mid terrain - brown/gray
                         float t = (h - waterLevel - 30f) / 50f;
                         pixel = Color.Lerp(new Color(0.4f, 0.35f, 0.2f), new Color(0.5f, 0.5f, 0.45f), t);
                     }
                     else
                     {
-                        // High terrain / mountains � white/gray
+                        // High terrain / mountains - white/gray
                         float t = Mathf.Clamp01((h - waterLevel - 80f) / 80f);
                         pixel = Color.Lerp(new Color(0.5f, 0.5f, 0.45f), new Color(0.9f, 0.9f, 0.9f), t);
                     }
@@ -1507,7 +1503,7 @@ namespace VerdantsAscent.Water.Core
                 }
             }
 
-            // Depression threshold � for world height cache, values are in meters
+            // Depression threshold - for world height cache, values are in meters
             // so we scale the normalized threshold to meters
             float minDepth = snapshot.IsWorldHeightCache
                 ? BCHeightmapWaterDetector.MinDepressionDepth * 200f  // ~1.6m
@@ -1537,19 +1533,19 @@ namespace VerdantsAscent.Water.Core
                     Color pixel;
                     if (dep > minDepth)
                     {
-                        // Detected depression � blue (water candidate)
+                        // Detected depression - blue (water candidate)
                         float intensity = Mathf.Clamp01(dep / maxDep);
                         pixel = new Color(0f, 0.2f * intensity, intensity);
                     }
                     else if (dep > 0f)
                     {
-                        // Slight depression below threshold � gray
+                        // Slight depression below threshold - gray
                         float g = 0.3f + 0.2f * Mathf.Clamp01(dep / minDepth);
                         pixel = new Color(g, g, g);
                     }
                     else
                     {
-                        // Not depressed � dark terrain
+                        // Not depressed - dark terrain
                         float norm = Mathf.Clamp01((localH - minH) / range);
                         float g = 0.1f + 0.2f * norm;
                         pixel = new Color(g, g, g);
@@ -1648,35 +1644,35 @@ namespace VerdantsAscent.Water.Core
             switch (biome)
             {
                 case Heightmap.Biome.Meadows:
-                    // Bright green � lush starter biome
+                    // Bright green - lush starter biome
                     return new Color(0.45f, 0.65f, 0.20f);
 
                 case Heightmap.Biome.BlackForest:
-                    // Dark forest green � dense conifer forests
+                    // Dark forest green - dense conifer forests
                     return new Color(0.15f, 0.35f, 0.12f);
 
                 case Heightmap.Biome.Swamp:
-                    // Murky dark brown-green � fetid wetlands
+                    // Murky dark brown-green - fetid wetlands
                     return new Color(0.25f, 0.28f, 0.10f);
 
                 case Heightmap.Biome.Mountain:
-                    // Cool gray-white � snowy peaks
+                    // Cool gray-white - snowy peaks
                     return new Color(0.75f, 0.78f, 0.82f);
 
                 case Heightmap.Biome.Plains:
-                    // Warm golden yellow � open grasslands
+                    // Warm golden yellow - open grasslands
                     return new Color(0.72f, 0.68f, 0.30f);
 
                 case Heightmap.Biome.Mistlands:
-                    // Deep purple-gray � misty ancient forests
+                    // Deep purple-gray - misty ancient forests
                     return new Color(0.35f, 0.25f, 0.40f);
 
                 case Heightmap.Biome.AshLands:
-                    // Volcanic red-orange � scorched earth
+                    // Volcanic red-orange - scorched earth
                     return new Color(0.55f, 0.20f, 0.10f);
 
                 case Heightmap.Biome.DeepNorth:
-                    // Icy pale blue-white � frozen tundra
+                    // Icy pale blue-white - frozen tundra
                     return new Color(0.80f, 0.88f, 0.95f);
 
                 case Heightmap.Biome.Ocean:
@@ -1684,7 +1680,7 @@ namespace VerdantsAscent.Water.Core
                     return new Color(0.08f, 0.15f, 0.45f);
 
                 default:
-                    // Heightmap.Biome.None or unknown � dark gray (edge of world)
+                    // Heightmap.Biome.None or unknown - dark gray (edge of world)
                     return new Color(0.10f, 0.10f, 0.10f);
             }
         }
@@ -1824,19 +1820,19 @@ namespace VerdantsAscent.Water.Core
                     Color pixel;
                     if (dep > minDepth)
                     {
-                        // Depressed pixel � show as blue (intensity = depression depth)
+                        // Depressed pixel - show as blue (intensity = depression depth)
                         float intensity = Mathf.Clamp01(dep / maxDep);
                         pixel = new Color(0f, 0.2f * intensity, intensity);
                     }
                     else if (dep > 0f)
                     {
-                        // Slightly depressed but below threshold � gray
+                        // Slightly depressed but below threshold - gray
                         float g = 0.3f + 0.2f * Mathf.Clamp01(dep / minDepth);
                         pixel = new Color(g, g, g);
                     }
                     else
                     {
-                        // Not depressed � dark terrain
+                        // Not depressed - dark terrain
                         float g = 0.15f + 0.15f * Mathf.Clamp01(localH);
                         pixel = new Color(g, g, g);
                     }
@@ -2543,11 +2539,7 @@ namespace VerdantsAscent.Water.Core
             // Both ZoneSystem.GetZone and IsZoneLoaded flipped Vector2i → Vector2s
             // on public test in unison — keep the local var's type matching whichever
             // pair this build links against.
-#if PUBLIC_TEST
             Vector2s zone = ZoneSystem.GetZone(position);
-#else
-            Vector2i zone = ZoneSystem.GetZone(position);
-#endif
             return ZoneSystem.instance.IsZoneLoaded(zone);
         }
 

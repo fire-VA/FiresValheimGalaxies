@@ -62,13 +62,13 @@ namespace VerdantsAscent.Terrain.Persistence
                 "Force a heightmap-material capture from any vanilla Heightmap in the loaded scene. Useful if tiles are rendering as the Standard fallback (admin yard with no vanilla terrain ever loaded this session).",
                 (args) =>
                 {
-                    if (VerdantsAscent.Terrain.Utilities.TerrainMaterialCache.HasMaterial)
+                    if (FiresCore.Materials.TerrainMaterialCache.HasMaterial)
                     {
                         args.Context.AddString("va_terrain_capture: already cached — no-op. Use va_terrain_recapture to drop the cache and re-grab (e.g. after HD Terrain finished loading).");
                         return;
                     }
-                    int scanned = VerdantsAscent.Terrain.Utilities.TerrainMaterialCache.ForceCaptureFromScene();
-                    if (VerdantsAscent.Terrain.Utilities.TerrainMaterialCache.HasMaterial)
+                    int scanned = FiresCore.Materials.TerrainMaterialCache.ForceCaptureFromScene();
+                    if (FiresCore.Materials.TerrainMaterialCache.HasMaterial)
                     {
                         args.Context.AddString($"va_terrain_capture: scanned {scanned} heightmap(s), captured heightmap material. All tiles upgraded.");
                     }
@@ -83,8 +83,8 @@ namespace VerdantsAscent.Terrain.Persistence
                 "Drop the cached tile material and re-capture from a vanilla Heightmap. Use after a shader-swap mod (e.g. ValheimHDTerrain) finishes loading so tiles pick up the new look. Refreshes every tile renderer in the world.",
                 (args) =>
                 {
-                    int scanned = VerdantsAscent.Terrain.Utilities.TerrainMaterialCache.ForceRecaptureFromScene();
-                    if (VerdantsAscent.Terrain.Utilities.TerrainMaterialCache.HasMaterial)
+                    int scanned = FiresCore.Materials.TerrainMaterialCache.ForceRecaptureFromScene();
+                    if (FiresCore.Materials.TerrainMaterialCache.HasMaterial)
                     {
                         args.Context.AddString($"va_terrain_recapture: cleared cache, scanned {scanned} heightmap(s), captured fresh material. All tiles upgraded.");
                     }

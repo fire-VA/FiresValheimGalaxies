@@ -348,7 +348,7 @@ namespace VerdantsAscent.Water.Core
                     float rayDist = waterSurface - rayStart.y;
                     if (rayDist > 0f && Physics.Raycast(rayStart, Vector3.up, rayDist, blockingMask))
                     {
-                        // Blocked by terrain � remove from water tracking
+                        // Blocked by terrain - remove from water tracking
                         if (interactable.Decrement(typeToUse) == 0)
                         {
                             interactable.SetLiquidLevel(-10000f, typeToUse, this);
@@ -659,6 +659,8 @@ namespace VerdantsAscent.Water.Core
                    $"In Water: {m_inWater.Count}";
         }
 
+        public float GetHoverOffset() => 0f;
+
         public string GetHoverName() => $"Custom {GetWaterType()}";
 
         private static bool IsLocalPlayerAdmin()
@@ -708,7 +710,7 @@ namespace VerdantsAscent.Water.Core
         {
             float distToWater = waterSurfaceY - characterPos.y;
 
-            // If water is close (within 5m above), don't bother checking � allow it
+            // If water is close (within 5m above), don't bother checking - allow it
             if (distToWater <= 5f)
                 return false;
 
@@ -745,7 +747,7 @@ namespace VerdantsAscent.Water.Core
                 {
                     float waterSurface = m_water.GetWaterSurfaceAt(t.position);
                     if (waterSurface > float.MinValue && IsBlockedByTerrain(t.position, waterSurface))
-                        return; // Blocked by terrain � don't enter water
+                        return; // Blocked by terrain - don't enter water
                 }
 
                 // Track before notifying water (in case water is destroyed during callback)

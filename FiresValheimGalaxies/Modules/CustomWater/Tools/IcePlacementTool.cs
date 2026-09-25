@@ -107,7 +107,7 @@ namespace VerdantsAscent.Water.Tools
                             break;
 
                         case "from":
-                            // from=X,Z,Y � IH ruler position; Y is the KEY height value
+                            // from=X,Z,Y - IH ruler position; Y is the KEY height value
                             string[] coords = value.Split(',');
                             if (coords.Length >= 2)
                             {
@@ -122,7 +122,7 @@ namespace VerdantsAscent.Water.Tools
                             break;
 
                         case "offset":
-                            // offset=<h> from IH � PageUp/PageDown height adjustment
+                            // offset=<h> from IH - PageUp/PageDown height adjustment
                             if (float.TryParse(value, out float h))
                                 heightOffset = h;
                             break;
@@ -165,7 +165,7 @@ namespace VerdantsAscent.Water.Tools
                 {
                     go = new GameObject("StandaloneIce");
                     go.transform.position = position;
-                    Debug.LogWarning("[IcePlacementTool] ice1 prefab not found � using bare GameObject (no persistence)");
+                    Debug.LogWarning("[IcePlacementTool] ice1 prefab not found - using bare GameObject (no persistence)");
                 }
                 var controller = go.GetComponent<FloatingIceController>();
                 if (controller == null)
@@ -230,7 +230,7 @@ namespace VerdantsAscent.Water.Tools
                             break;
 
                         case "from":
-                            // from=X,Z,Y � IH ruler position; Y is the KEY height value
+                            // from=X,Z,Y - IH ruler position; Y is the KEY height value
                             string[] coords = value.Split(',');
                             if (coords.Length >= 2)
                             {
@@ -245,7 +245,7 @@ namespace VerdantsAscent.Water.Tools
                             break;
 
                         case "offset":
-                            // offset=<h> from IH � PageUp/PageDown height adjustment
+                            // offset=<h> from IH - PageUp/PageDown height adjustment
                             if (float.TryParse(value, out float h))
                                 heightOffset = h;
                             break;
@@ -279,7 +279,7 @@ namespace VerdantsAscent.Water.Tools
                 {
                     go = new GameObject("StandaloneIce");
                     go.transform.position = position;
-                    Debug.LogWarning("[IcePlacementTool] ice1 prefab not found � using bare GameObject (no persistence)");
+                    Debug.LogWarning("[IcePlacementTool] ice1 prefab not found - using bare GameObject (no persistence)");
                 }
                 var controller = go.GetComponent<FloatingIceController>();
                 if (controller == null)
@@ -492,7 +492,7 @@ namespace VerdantsAscent.Water.Tools
             if (prefab == null)
                 return null;
 
-            // Instantiate at position � ZNetScene.Instantiate will create the ZDO
+            // Instantiate at position - ZNetScene.Instantiate will create the ZDO
             GameObject go = Object.Instantiate(prefab, position, Quaternion.identity);
             go.name = "StandaloneIce";
 
@@ -551,7 +551,7 @@ namespace VerdantsAscent.Water.Tools
         {
             float terrainY = GetTerrainHeight(pos);
 
-            // Check custom water FIRST (always reliable � only exists where explicitly placed)
+            // Check custom water FIRST (always reliable - only exists where explicitly placed)
             var combiner = WaterMeshCombiner.GetCombinerAt(pos);
             if (combiner != null)
             {
@@ -569,7 +569,7 @@ namespace VerdantsAscent.Water.Tools
                     float waterLevel = wv.GetWaterSurface(pos, 1f);
                     if (waterLevel <= -999f) continue;
 
-                    // The terrain must be CLEARLY submerged � at least 1m below water level.
+                    // The terrain must be CLEARLY submerged - at least 1m below water level.
                     // This prevents false positives on beaches and low-lying land where the
                     // ocean datum is close but the ground is not actually underwater.
                     if (terrainY < waterLevel - 1f)

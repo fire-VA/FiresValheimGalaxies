@@ -14,11 +14,11 @@ namespace VerdantsAscent.Water.Core
     /// WHY NOT JUST READ BC'S HEIGHTMAP PNG?
     /// BC's ImageMapFloat.Map[] is only ONE input to the final terrain. The actual
     /// terrain height at any point goes through multiple additional processing steps:
-    ///   1. ApplyHeightmap() — blend/amount/mask/add modifiers
-    ///   2. BaseHeightNoise.Apply() — procedural noise layers stacked on top
-    ///   3. GetBaseHeight() — sea level adjustment, edge dropoff, mountain distance
-    ///   4. GetBiomeHeight() postfixes — roughmap, flatmap, paint overlays
-    ///   5. AddRivers() — river channel carving (when not HeightmapOverrideAll)
+    ///   1. ApplyHeightmap() - blend/amount/mask/add modifiers
+    ///   2. BaseHeightNoise.Apply() - procedural noise layers stacked on top
+    ///   3. GetBaseHeight() - sea level adjustment, edge dropoff, mountain distance
+    ///   4. GetBiomeHeight() postfixes - roughmap, flatmap, paint overlays
+    ///   5. AddRivers() - river channel carving (when not HeightmapOverrideAll)
     /// 
     /// Reading just the raw heightmap pixel and applying the simplified formula
     /// (pixel * Amount - 0.15 + SeaLevelAdj) * 200 MISSES steps 2-5 entirely.
@@ -28,7 +28,7 @@ namespace VerdantsAscent.Water.Core
     /// 
     /// SOLUTION: Sample WorldGenerator.GetHeight(wx, wz) on a grid. This function
     /// returns the EXACT same height that Heightmap.Generate() uses to build terrain
-    /// chunks — it includes ALL BC patches, noise layers, roughmap, flatmap, and
+    /// chunks - it includes ALL BC patches, noise layers, roughmap, flatmap, and
     /// river carving. The resulting grid is the ground truth.
     /// 
     /// BIOME SAMPLING:
@@ -40,20 +40,20 @@ namespace VerdantsAscent.Water.Core
     ///   1. Call BuildCacheCoroutine() from the main thread (needs WorldGenerator)
     ///   2. This samples GetHeight() (and optionally GetBiome()) across the world
     ///   3. The result is a HeightmapSnapshot with the same interface as
-    ///      BCHeightmapWaterDetector's snapshot — plug it into DetectWaterBodies()
+    ///      BCHeightmapWaterDetector's snapshot - plug it into DetectWaterBodies()
     ///   4. Depression analysis runs on a background thread using the cached grid
     /// 
     /// GRID RESOLUTION:
     /// Default 4096x4096 for a 20km world = ~5m per pixel. This gives sub-channel
     /// accuracy for most rivers and is the recommended setting.
-    /// At 5000 samples/frame, a 4096² grid takes ~3400 frames ? 55 seconds.
+    /// At 5000 samples/frame, a 4096^2 grid takes ~3400 frames ? 55 seconds.
     /// 
     /// For pixel-perfect river placement, use 8192x8192 (~2.5m/pixel).
-    /// At 5000 samples/frame, an 8192² grid takes ~13,400 frames ? 3-4 minutes.
+    /// At 5000 samples/frame, an 8192^2 grid takes ~13,400 frames ? 3-4 minutes.
     /// 
     /// For true 1m/pixel precision (matching Unity's 1m terrain increments), use
     /// 20480x20480. This gives 21000/20480 ? 1.025m per pixel.
-    /// At 5000 samples/frame, a 20480² grid takes ~83,886 frames ? 23 minutes.
+    /// At 5000 samples/frame, a 20480^2 grid takes ~83,886 frames ? 23 minutes.
     /// Memory: ~1.6 GB for heights + ~400 MB for biome data. Build once, cache forever.
     /// 
     /// For fast/rough scans, use 1024x1024 (~20m/pixel, ~3 seconds at 5000/frame).
@@ -100,7 +100,7 @@ namespace VerdantsAscent.Water.Core
         /// Each int is the (int)Heightmap.Biome enum value at that grid position.
         /// Null if IncludeBiomeData was false during the last build.
         /// Note: Heightmap.Biome is a flags enum with values up to 512 (Mistlands),
-        /// so byte[] is insufficient — we use int[].
+        /// so byte[] is insufficient - we use int[].
         /// </summary>
         private static int[] _cachedBiomes;
 
@@ -136,7 +136,7 @@ namespace VerdantsAscent.Water.Core
         /// 
         /// IMPORTANT: Since the Map[] values are actual world Y heights (not 0-1),
         /// HeightmapToWorldY() must handle this. We set HeightmapAmount=1 and
-        /// SeaLevelAdjustment=0 and store raw world Y directly — the conversion
+        /// SeaLevelAdjustment=0 and store raw world Y directly - the conversion
         /// formula (val * 1.0 - 0.15 + 0.0) * 200 does NOT apply. Instead,
         /// DetectWaterBodies and other consumers should check the IsWorldHeightCache
         /// flag and skip the conversion, using Map[] values directly as world Y.
@@ -167,7 +167,7 @@ namespace VerdantsAscent.Water.Core
             var wg = WorldGenerator.instance;
             if (wg == null)
             {
-                Debug.LogError("[WorldHeightCache] WorldGenerator.instance is null — cannot build cache");
+                Debug.LogError("[WorldHeightCache] WorldGenerator.instance is null - cannot build cache");
                 onComplete?.Invoke(null);
                 yield break;
             }
@@ -307,7 +307,7 @@ namespace VerdantsAscent.Water.Core
             }
             float avgH = (float)(sumH / heights.Length);
 
-            Debug.Log($"[WorldHeightCache] Cache built in {sw.ElapsedMilliseconds}ms — " +
+            Debug.Log($"[WorldHeightCache] Cache built in {sw.ElapsedMilliseconds}ms - " +
                 $"{size}x{size} grid, heights: min={minH:F1}, max={maxH:F1}, avg={avgH:F1}, " +
                 $"waterLevel={ZoneSystem.instance?.m_waterLevel ?? 30f}, " +
                 $"biomeData={biomes != null}");
@@ -419,8 +419,8 @@ namespace VerdantsAscent.Water.Core
                 if (_cachedSnapshot != null && _cachedSnapshot.Size == GridSize)
                     return true; // Already loaded at correct resolution
 
-                // Cached snapshot exists but at wrong resolution — invalidate it
-                Debug.Log($"[WorldHeightCache] TryLoadFromDisk: cached snapshot size {_cachedSnapshot?.Size ?? 0} != configured GridSize {GridSize} — invalidating");
+                // Cached snapshot exists but at wrong resolution - invalidate it
+                Debug.Log($"[WorldHeightCache] TryLoadFromDisk: cached snapshot size {_cachedSnapshot?.Size ?? 0} != configured GridSize {GridSize} - invalidating");
                 ClearCache();
             }
 
@@ -449,21 +449,21 @@ namespace VerdantsAscent.Water.Core
                     if (magic.Length < 4 || magic[0] != DiskMagic[0] || magic[1] != DiskMagic[1] ||
                         magic[2] != DiskMagic[2] || magic[3] != DiskMagic[3])
                     {
-                        Debug.LogWarning("[WorldHeightCache] Invalid cache file magic — rebuilding");
+                        Debug.LogWarning("[WorldHeightCache] Invalid cache file magic - rebuilding");
                         return false;
                     }
 
                     int version = reader.ReadInt32();
                     if (version != DiskVersion)
                     {
-                        Debug.LogWarning($"[WorldHeightCache] Cache file version {version} != expected {DiskVersion} — rebuilding");
+                        Debug.LogWarning($"[WorldHeightCache] Cache file version {version} != expected {DiskVersion} - rebuilding");
                         return false;
                     }
 
                     int size = reader.ReadInt32();
                     if (size != GridSize)
                     {
-                        Debug.LogWarning($"[WorldHeightCache] Cache grid size {size} != configured {GridSize} — rebuilding");
+                        Debug.LogWarning($"[WorldHeightCache] Cache grid size {size} != configured {GridSize} - rebuilding");
                         return false;
                     }
 
@@ -477,7 +477,7 @@ namespace VerdantsAscent.Water.Core
                     float[] heights = DecompressFloatArray(compressedHeights, size * size);
                     if (heights == null)
                     {
-                        Debug.LogWarning("[WorldHeightCache] Failed to decompress height data — rebuilding");
+                        Debug.LogWarning("[WorldHeightCache] Failed to decompress height data - rebuilding");
                         return false;
                     }
 
@@ -514,7 +514,7 @@ namespace VerdantsAscent.Water.Core
                     }
 
                     long fileSizeMB = new FileInfo(path).Length / (1024 * 1024);
-                    Debug.Log($"[WorldHeightCache] Loaded from disk in {sw.ElapsedMilliseconds}ms — " +
+                    Debug.Log($"[WorldHeightCache] Loaded from disk in {sw.ElapsedMilliseconds}ms - " +
                         $"{size}x{size} grid, heights: {minH:F1} to {maxH:F1}, " +
                         $"biomes={biomes != null}, file={fileSizeMB}MB, path={path}");
 
@@ -551,7 +551,7 @@ namespace VerdantsAscent.Water.Core
             // If cached at wrong resolution, invalidate
             if (_hasCachedSnapshot)
             {
-                Debug.Log($"[WorldHeightCache] TryLoadFromDiskAsync: cached snapshot size {_cachedSnapshot?.Size ?? 0} != configured GridSize {GridSize} — invalidating");
+                Debug.Log($"[WorldHeightCache] TryLoadFromDiskAsync: cached snapshot size {_cachedSnapshot?.Size ?? 0} != configured GridSize {GridSize} - invalidating");
                 ClearCache();
             }
 
@@ -651,7 +651,7 @@ namespace VerdantsAscent.Water.Core
                         }
 
                         long fileSizeMB = new FileInfo(cachePath).Length / (1024 * 1024);
-                        Debug.Log($"[WorldHeightCache] Loaded from disk in {sw.ElapsedMilliseconds}ms — " +
+                        Debug.Log($"[WorldHeightCache] Loaded from disk in {sw.ElapsedMilliseconds}ms - " +
                             $"{size}x{size} grid, heights: {minH:F1} to {maxH:F1}, " +
                             $"biomes={biomes != null}, file={fileSizeMB}MB, path={cachePath}");
                     }
@@ -665,7 +665,7 @@ namespace VerdantsAscent.Water.Core
                 }
             });
 
-            // Poll for completion — yields control back to Unity each frame
+            // Poll for completion - yields control back to Unity each frame
             while (completionFlag[0] == 0)
             {
                 yield return null;
@@ -681,7 +681,7 @@ namespace VerdantsAscent.Water.Core
             else
             {
                 if (!string.IsNullOrEmpty(errorMsg))
-                    Debug.LogWarning($"[WorldHeightCache] Async disk load failed: {errorMsg} — rebuilding");
+                    Debug.LogWarning($"[WorldHeightCache] Async disk load failed: {errorMsg} - rebuilding");
                 onComplete?.Invoke(false);
             }
         }
@@ -747,7 +747,7 @@ namespace VerdantsAscent.Water.Core
 
                     sw.Stop();
                     long fileSizeMB = new FileInfo(path).Length / (1024 * 1024);
-                    Debug.Log($"[WorldHeightCache] Saved to disk in {sw.ElapsedMilliseconds}ms — " +
+                    Debug.Log($"[WorldHeightCache] Saved to disk in {sw.ElapsedMilliseconds}ms - " +
                         $"{snapshot.Size}x{snapshot.Size}, heights={compressedHeights.Length / (1024 * 1024)}MB compressed, " +
                         $"biomes={compressedBiomes?.Length / (1024 * 1024) ?? 0}MB compressed, " +
                         $"total file={fileSizeMB}MB, path={path}");

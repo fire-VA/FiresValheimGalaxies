@@ -140,13 +140,13 @@ namespace VerdantsAscent.Water.Core
                     // Notify parent river
                     ParentRiver?.OnWaterfallLanded(this, _landingPosition, FlowRate);
 
-                    Debug.Log($"[CustomWaterfall] Landed at {_landingPosition}, slope={slopeAngle:F1}°, drop={DropHeight:F1}m");
+                    Debug.Log($"[CustomWaterfall] Landed at {_landingPosition}, slope={slopeAngle:F1}\u00B0, drop={DropHeight:F1}m");
                 }
                 else if (DropHeight < 100f)
                 {
                     // Still steep - extend drop height
                     DropHeight += 2f;
-                    Debug.Log($"[CustomWaterfall] Extended drop to {DropHeight:F1}m, slope={slopeAngle:F1}°");
+                    Debug.Log($"[CustomWaterfall] Extended drop to {DropHeight:F1}m, slope={slopeAngle:F1}\u00B0");
                 }
                 else
                 {
