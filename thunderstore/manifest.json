@@ -1,0 +1,10 @@
+{
+    "name":  "FiresValheimGalaxies",
+    "version_number":  "0.1.39",
+    "website_url":  "https://github.com/fire-VA/FiresValheimGalaxies",
+    "description":  "A real 3D moon with phases that orbits the world and drives tides, ocean and river currents and storm whirlpools.",
+    "dependencies":  [
+                         "denikson-BepInExPack_Valheim-5.4.2350",
+                         "VerdantsAscent-FiresUnifiedCore-0.2.387"
+                     ]
+}
