@@ -520,8 +520,8 @@ namespace VerdantsAscent.Water.Core
                 zdo.Set(s_realPositionHash, _combiner.transform.position);
 
                 // Save common properties
-                zdo.Set(s_liquidTypeHash, (int)_combiner.LiquidType);
-                zdo.Set(s_customLiquidTypeHash, (int)_combiner.CustomLiquidType);
+                zdo.Set(s_liquidTypeHash, (int)(_combiner.SeasonalIce ? CustomLiquidType.Water.ToVanillaLiquidType() : _combiner.LiquidType));
+                zdo.Set(s_customLiquidTypeHash, (int)_combiner.SavedCustomLiquidType);   // 0.1.39: seasonal ice saves as water
                 zdo.Set(s_waveIntensityHash, _combiner.WaveIntensity);
 
                 // CRITICAL: Save water disks FIRST - this is the source of truth
@@ -1303,6 +1303,7 @@ namespace VerdantsAscent.Water.Core
             if (compressed == null || compressed.Length == 0) return;
 
             byte[] data = DecompressData(compressed);
+            if (data == null || data.Length < 4) return;
             var pkg = new ZPackage(data);
 
             int gridWidth = pkg.ReadInt();
@@ -1310,6 +1311,11 @@ namespace VerdantsAscent.Water.Core
             float cellSize = pkg.ReadSingle();
             float settledLevel = pkg.ReadSingle();
             bool isPondMode = pkg.ReadBool();
+            if (gridWidth <= 0 || gridHeight <= 0 || gridWidth > MAX_GRID_DIM || gridHeight > MAX_GRID_DIM || float.IsNaN(cellSize) || float.IsInfinity(cellSize) || cellSize <= 0f || float.IsNaN(settledLevel) || float.IsInfinity(settledLevel))
+            {
+                Debug.LogWarning($"[WaterMeshCombinerAnchor] Grid config out of range ({gridWidth}x{gridHeight}, cell {cellSize}) - dropped.");
+                return;
+            }
 
             _combiner.SetGridConfiguration(gridWidth, gridHeight, cellSize, settledLevel, isPondMode);
         }
@@ -1320,9 +1326,11 @@ namespace VerdantsAscent.Water.Core
             if (compressed == null || compressed.Length == 0) return;
 
             byte[] data = DecompressData(compressed);
+            if (data == null || data.Length < 4) return;
             var pkg = new ZPackage(data);
 
             int count = pkg.ReadInt();
+            if (count < 0 || count > (data.Length - 4) / 4 || count > MAX_GRID_DIM * MAX_GRID_DIM) { Debug.LogWarning($"[WaterMeshCombinerAnchor] Height count {count} out of range - dropped."); return; }
             float[] heights = new float[count];
 
             for (int i = 0; i < count; i++)
@@ -1339,9 +1347,11 @@ namespace VerdantsAscent.Water.Core
             if (compressed == null || compressed.Length == 0) return;
 
             byte[] data = DecompressData(compressed);
+            if (data == null || data.Length < 4) return;
             var pkg = new ZPackage(data);
 
             int count = pkg.ReadInt();
+            if (count < 0 || count > (data.Length - 4) / 4 || count > MAX_GRID_DIM * MAX_GRID_DIM) { Debug.LogWarning($"[WaterMeshCombinerAnchor] Height count {count} out of range - dropped."); return; }
             float[] heights = new float[count];
 
             for (int i = 0; i < count; i++)
@@ -1382,6 +1392,9 @@ namespace VerdantsAscent.Water.Core
             }
         }
 
+        private const int MAX_DECOMPRESSED_BYTES = 16 * 1024 * 1024;
+        private const int MAX_GRID_DIM = 4096;
+
         private static byte[] DecompressData(byte[] compressed)
         {
             if (compressed == null || compressed.Length == 0) return compressed;
@@ -1390,7 +1403,18 @@ namespace VerdantsAscent.Water.Core
             using (var gzip = new GZipStream(input, CompressionMode.Decompress))
             using (var output = new MemoryStream())
             {
-                gzip.CopyTo(output);
+                // 0.1.60 security: capped copy (ZDO bytes come from any peer that owns the anchor).
+                var buf = new byte[81920];
+                int read;
+                while ((read = gzip.Read(buf, 0, buf.Length)) > 0)
+                {
+                    if (output.Length + read > MAX_DECOMPRESSED_BYTES)
+                    {
+                        Debug.LogWarning($"[WaterMeshCombinerAnchor] Decompressed ZDO data exceeds {MAX_DECOMPRESSED_BYTES} bytes - dropped.");
+                        return null;
+                    }
+                    output.Write(buf, 0, read);
+                }
                 return output.ToArray();
             }
         }

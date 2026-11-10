@@ -33,6 +33,22 @@ namespace VerdantsAscent.Water.Core
         public float  Scale;          // model scale multiplier
         public float  TiltDeg;        // orbital-plane inclination (tip the whole ring up/down)
         public float  YawDeg;         // static compass heading of the orbit's long axis (around Y)
+        public OrbitMotion Motion;    // 0.1.32: how the body moves (Auto = Realistic for the moon prefab, Custom otherwise)
+        public float  LockAzimuthDeg; // Locked: compass heading of the body's sky direction (0 = north, 90 = east)
+        public float  LockElevationDeg; // Locked: height above the horizon (deg)
+        public bool   TidalLock;      // the same face always toward the world centre (a real moon); off = SpinDegPerSec
+    }
+
+    // 0.1.32 (Fire 10-06: "we cannot stop the rotation to lock it in a position or slow the rotation ... it should follow a
+    // realistic orbit around the planet"). The moon slot used to be pinned to the anti-sun (FollowVanillaMoon), which ignored
+    // every orbit key.
+    public enum OrbitMotion
+    {
+        Auto,       // Realistic for the moon prefab, Custom for anything else
+        Realistic,  // the moon's synodic orbit on the game clock: [Galaxies - Moon] SynodicDays / OrbitInclinationDeg, plus this slot's PhaseOffsetDeg
+        Custom,     // the slot's egg orbit (width, apex/nadir, PeriodSeconds, tilt, yaw, precession, wobble)
+        Locked,     // held still in the sky at LockAzimuthDeg / LockElevationDeg
+        AntiSun,    // the old behaviour: opposite the sun, where vanilla's moonlight comes from (always full)
     }
 
     public static class FiresOrbitals
@@ -55,6 +71,7 @@ namespace VerdantsAscent.Water.Core
             public GameObject  Instance;
             public string      BuiltFrom;   // PrefabName the instance was built from
             public bool        IsPlaceholder;
+            public float       UnitRadius;  // renderer radius at scale 1 (0 until measured); FollowVanillaMoon sizing
         }
 
         public static void SetParent(Transform parent) => s_parent = parent;
@@ -70,7 +87,7 @@ namespace VerdantsAscent.Water.Core
         {
             // Cross-mod master kill: FiresTossinShade's "00 Master" pushes _FiresMasterFxOff=1
             // for pure vanilla graphics — orbitals stand down like Enabled=false. Unset/0 = run.
-            if (!Enabled || Shader.GetGlobalFloat(s_propMasterFxOff) > 0.5f) { TeardownAll(); return; }
+            if (!Enabled || Shader.GetGlobalFloat(s_propMasterFxOff) > 0.5f || VerdantsAscent.Galaxies.RingWorld.Active) { TeardownAll(); return; }   // 0.1.62: halo ring
             if (s_dirty) { Rebuild(); s_dirty = false; }
 
             // A prefab named in the config but not yet in the bundle at spawn time
@@ -82,27 +99,111 @@ namespace VerdantsAscent.Water.Core
             }
 
             float t = Time.time;
+            Camera cam = Utils.GetMainCamera();
             foreach (var b in s_bodies)
             {
                 if (b.Instance == null) continue;
-                b.Instance.transform.position = ComputePosition(b.P, t);
-                b.Instance.transform.rotation = Quaternion.Euler(0f, t * b.P.SpinDegPerSec, 0f);
+                Vector3 pos = ComputePosition(b.P, t);
+                b.Instance.transform.position = pos;
+                // Tidally locked: the same face always toward the world centre, so from the map it never seems to turn.
+                Vector3 toCentre = Center - pos;
+                b.Instance.transform.rotation = b.P.TidalLock && toCentre.sqrMagnitude > 1f
+                    ? Quaternion.LookRotation(toCentre, Vector3.up)
+                    : Quaternion.Euler(0f, t * b.P.SpinDegPerSec, 0f);
+                if (b.P.FollowVanillaMoon) SizeAsTheMoon(b, cam);
+            }
+
+            if (Time.time >= s_nextSightLog) { s_nextSightLog = Time.time + 30f; LogSight(); }
+        }
+
+        // 0.1.29 (Fire 10-05: "we still have no moon"). The body that rides the vanilla moon IS the moon (FiresMoon hides its
+        // skybox disc while this one shows, and the vanilla moon is hidden too), but it was sized by the slot's model scale,
+        // meant for the 1 m placeholder sphere: the FiresMoon prefab's mesh is ~2 cm across, so scale 50 made it 0.01 deg at
+        // ~5.4 km, a dot (the sight line said so). It is now scaled every frame from its distance to the camera to look as big
+        // as the moon is meant to (FiresMoon.TargetAngularDiameterDeg x SizeScale, the disc's own size); the slot's scale stays
+        // the floor.
+        private static void SizeAsTheMoon(Body b, Camera cam)
+        {
+            if (cam == null) return;
+            float scale = Mathf.Max(0.01f, b.P.Scale);
+            if (b.UnitRadius <= 0f)
+            {
+                float radius = 0f;
+                foreach (var r in b.Instance.GetComponentsInChildren<Renderer>(true))
+                    if (r != null) radius = Mathf.Max(radius, Mathf.Max(r.bounds.extents.x, Mathf.Max(r.bounds.extents.y, r.bounds.extents.z)));
+                float current = b.Instance.transform.lossyScale.x;
+                if (radius <= 0f || current <= 0f) return;
+                b.UnitRadius = radius / current;
+            }
+            float dist = Vector3.Distance(cam.transform.position, b.Instance.transform.position);
+            float wanted = dist * Mathf.Tan(FiresMoon.TargetAngularDiameterDeg * 0.5f * Mathf.Deg2Rad) * Mathf.Max(0.01f, FiresMoon.SizeScale);
+            float parent = b.Instance.transform.parent != null ? b.Instance.transform.parent.lossyScale.x : 1f;
+            scale = Mathf.Max(scale, wanted / b.UnitRadius / Mathf.Max(1e-4f, parent));
+            b.Instance.transform.localScale = Vector3.one * scale;
+        }
+
+        private static float s_nextSightLog;
+
+        /// <summary>
+        /// Debug, every 30 s: where each orbiting body is from the camera, how big it looks and whether it is drawn,
+        /// so "I can't see the moon" can be read off the log (behind the far plane, under the horizon, sub-pixel,
+        /// renderer off) instead of guessed.
+        /// </summary>
+        private static void LogSight()
+        {
+            if (s_bodies.Count == 0) return;
+            // 0.1.54 ([lead] LOG_AUDIT_20261015: 347 lines on a dedi with no camera): no sight probe on a headless server at all
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null || (ZNet.instance != null && ZNet.instance.IsDedicated())) return;
+            Camera cam = Utils.GetMainCamera();
+            if (cam == null) return;
+            Vector3 eye = cam.transform.position;
+            foreach (var b in s_bodies)
+            {
+                if (b.Instance == null) continue;
+                var r = b.Instance.GetComponentInChildren<Renderer>(true);
+                Vector3 to = b.Instance.transform.position - eye;
+                float dist = to.magnitude;
+                float radius = r != null ? Mathf.Max(r.bounds.extents.x, Mathf.Max(r.bounds.extents.y, r.bounds.extents.z)) : 0f;
+                float angularDeg = dist > 1f ? 2f * Mathf.Atan(radius / dist) * Mathf.Rad2Deg : 0f;
+                float elevationDeg = dist > 1f ? Mathf.Asin(Mathf.Clamp(to.y / dist, -1f, 1f)) * Mathf.Rad2Deg : 0f;
+                FiresLogger.LogDebug($"[FiresOrbitals] sight '{b.Instance.name}': dist={dist:F0}m (far clip {cam.farClipPlane:F0}m), "
+                    + $"elevation={elevationDeg:F1}deg, apparentSize={angularDeg:F2}deg, active={b.Instance.activeInHierarchy}, "
+                    + $"renderer={(r == null ? "none" : r.enabled + " shader='" + (r.sharedMaterial != null ? r.sharedMaterial.shader.name : "none") + "'")}, "
+                    + $"layer={b.Instance.layer}, culledByCamera={(cam.cullingMask & (1 << b.Instance.layer)) == 0}.");
             }
         }
 
+        // Auto: the moon prefab rides its realistic orbit, anything else the slot's egg orbit.
+        public static OrbitMotion EffectiveMotion(OrbitParams p) =>
+            p.Motion != OrbitMotion.Auto ? p.Motion : p.FollowVanillaMoon ? OrbitMotion.Realistic : OrbitMotion.Custom;
+
         public static Vector3 ComputePosition(OrbitParams p, float t)
         {
-            // Vanilla-moon anchor: ride the moon's real sky direction (anti-sun = -_SkyboxSunDir,
-            // the same value the moon/aurora shaders use — up at night, below the horizon by day)
-            // so the visible body sits where the moon light + god-rays originate. World-anchored at
-            // Center so it's still a reachable body (exactly aligned from map-centre, mild parallax
-            // far out; the LIGHT itself is pinned by EnvMan, so the shafts stay correct regardless).
-            if (p.FollowVanillaMoon)
+            OrbitMotion motion = EffectiveMotion(p);
+            float skyDistance = Mathf.Max(500f, p.OrbitWidth * 0.5f);
+
+            // Locked: a fixed sky direction (azimuth from north, elevation above the horizon), world-anchored at Center.
+            if (motion == OrbitMotion.Locked)
+            {
+                float az = p.LockAzimuthDeg * Mathf.Deg2Rad, el = Mathf.Clamp(p.LockElevationDeg, -90f, 90f) * Mathf.Deg2Rad;
+                return Center + new Vector3(Mathf.Sin(az) * Mathf.Cos(el), Mathf.Sin(el), Mathf.Cos(az) * Mathf.Cos(el)) * skyDistance;
+            }
+
+            // Sun-relative motions read the sky's sun direction (-_SkyboxSunDir is where vanilla's moonlight comes from).
+            //   AntiSun: opposite the sun (the pre-0.1.32 moon): lines up with the moonlight and god-rays, always full.
+            //   Realistic: FiresMoon's own orbit, on the game clock: it crosses the sky once a day like the sun, rises a little
+            //   later each day and goes through its phases over SynodicDays, on a plane tilted by OrbitInclinationDeg.
+            //   The slot's PhaseOffsetDeg shifts it along that orbit (90 = a quarter of the cycle).
+            if (motion == OrbitMotion.AntiSun || motion == OrbitMotion.Realistic)
             {
                 Vector4 s = Shader.GetGlobalVector(s_propSkyboxSunDir);
-                Vector3 moonDir = new Vector3(-s.x, -s.y, -s.z);
-                if (moonDir.sqrMagnitude > 1e-4f)
-                    return Center + moonDir.normalized * Mathf.Max(500f, p.OrbitWidth * 0.5f);
+                Vector3 sun = new Vector3(s.x, s.y, s.z);
+                if (sun.sqrMagnitude > 1e-4f)
+                {
+                    Vector3 dir = motion == OrbitMotion.AntiSun ? -sun.normalized
+                        : FiresMoon.ComputeMoonDirection(sun, Mathf.Repeat(FiresMoon.ComputePhase01() + p.PhaseOffsetDeg / 360f, 1f));
+                    return Center + dir.normalized * skyDistance;
+                }
                 // _SkyboxSunDir not ready yet — fall through to the egg orbit this frame.
             }
 
@@ -162,7 +263,15 @@ namespace VerdantsAscent.Water.Core
             {
                 var p = s_params[i];
                 if (!p.Enabled) continue;
-                if (s_bodies.Exists(x => x.SlotIndex == i)) { UpdateExisting(i, p); continue; }
+                // 0.1.55 ([seasons] FAD direct hop): a body whose GameObject was DESTROYED (a Unity fake-null, not a body that never built)
+                // is dropped and rebuilt, instead of its slot staying "taken" by a dead object for the rest of the session.
+                var have = s_bodies.Find(x => x.SlotIndex == i);
+                if (have != null && !ReferenceEquals(have.Instance, null) && have.Instance == null)
+                {
+                    s_bodies.Remove(have); have = null;
+                    Debug.Log($"[FiresValheimGalaxies] [FiresOrbitals] slot {i}: its body was destroyed (scene load); rebuilding");
+                }
+                if (have != null) { UpdateExisting(i, p); continue; }
 
                 var body = new Body { P = p, SlotIndex = i };
                 body.Instance = CreateInstance(p, i, out body.IsPlaceholder);
@@ -194,7 +303,7 @@ namespace VerdantsAscent.Water.Core
             if (prefab != null)
             {
                 go = InstantiateOrbitalBody(prefab, $"FiresOrbital_{slot}_{p.PrefabName}");
-                Debug.Log($"[FiresOrbitals] Slot {slot}: orbiting prefab '{p.PrefabName}' (collidable, travelable).");
+                if (FiresCore.Logging.FiresLogLevel.DebugOn) Debug.Log($"[FiresOrbitals] Slot {slot}: orbiting prefab '{p.PrefabName}' (collidable, travelable).");
             }
             else
             {
@@ -248,6 +357,16 @@ namespace VerdantsAscent.Water.Core
             finally { ZNetView.FinishGhostInit(); }
             go.name = name;
             StripToBody(go);
+            // The moon prefab's own material is a broken stand-in (Unity 'Standard', texture lost in bundling): unlit by
+            // night it rendered as nothing, so the HD moon looked gone (2026-10-05). Give the reachable moon the same
+            // Custom/FiresMoon material + albedo the sky disc uses.
+            if (prefab == FiresMoon.MoonPrefab)
+            {
+                int renderers = FiresMoon.ApplyMoonLook(go, out Bounds bounds);
+                FiresLogger.LogDebug($"[FiresOrbitals] '{name}' takes the HD moon look: renderers={renderers}, "
+                    + $"shader='{(FiresMoon.MoonMaterial != null ? FiresMoon.MoonMaterial.shader.name : "none")}', "
+                    + $"albedo='{(FiresMoon.MoonTexture != null ? FiresMoon.MoonTexture.name : "none")}', unitBounds={bounds.size}.");
+            }
             LogBodyVisual(go, name);
             go.transform.position = new Vector3(0f, -100000f, 0f);   // park off-screen until the first Tick positions it
             return go;
@@ -277,7 +396,7 @@ namespace VerdantsAscent.Water.Core
             foreach (var r in go.GetComponentsInChildren<Renderer>(true))
                 if (r != null && r.sharedMaterial != null && r.sharedMaterial.shader != null)
                 { firstShader = r.sharedMaterial.shader.name; break; }
-            Debug.Log($"[FiresOrbitals] body '{name}' visual: layer={go.layer} ('{LayerMask.LayerToName(go.layer)}'), "
+            if (FiresCore.Logging.FiresLogLevel.DebugOn) Debug.Log($"[FiresOrbitals] body '{name}' visual: layer={go.layer} ('{LayerMask.LayerToName(go.layer)}'), "
                     + $"meshRenderers={mrs.Length}, skinned={smrs.Length}, lodGroups={lods.Length}, firstShader='{firstShader}'.");
         }
 
@@ -331,6 +450,7 @@ namespace VerdantsAscent.Water.Core
                 if (s_parent != null) go.transform.SetParent(s_parent, true);
                 b.Instance = go;
                 b.IsPlaceholder = false;
+                b.UnitRadius = 0f;   // a new mesh: measured again on the next tick
                 Debug.Log($"[FiresOrbitals] Slot {b.SlotIndex}: upgraded placeholder to prefab '{b.P.PrefabName}'.");
             }
         }
@@ -355,7 +475,8 @@ namespace VerdantsAscent.Water.Core
                 var p = s_params[i];
                 if (!p.Enabled) { L($"  slot {i}: disabled"); continue; }
                 Vector3 orbitPos = ComputePosition(p, t);
-                L($"  slot {i}: prefab='{p.PrefabName}' followVanillaMoon={p.FollowVanillaMoon} scale={p.Scale:F0} " +
+                L($"  slot {i}: prefab='{p.PrefabName}' followVanillaMoon={p.FollowVanillaMoon} motion={EffectiveMotion(p)}{(p.Motion == OrbitMotion.Auto ? " (auto)" : "")} " +
+                  $"tidalLock={p.TidalLock} scale={p.Scale:F0} " +
                   $"orbitPos=({orbitPos.x:F0},{orbitPos.y:F0},{orbitPos.z:F0}) distFromPlayer={Vector3.Distance(orbitPos, playerPos):F0}");
                 var b = s_bodies.Find(x => x.SlotIndex == i);
                 if (b == null || b.Instance == null) { L("         body: NONE (not built)"); continue; }

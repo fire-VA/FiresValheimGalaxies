@@ -17,6 +17,8 @@ namespace VerdantsAscent
 
         public static void LogVerbose(string message) => Log.Verbose(message);
 
+        public static void LogDebug(string message) => Log.Debug(message);
+
         public static void LogWarning(string message) => Log.Warning(message);
 
         public static void LogError(string message) => Log.Error(message);

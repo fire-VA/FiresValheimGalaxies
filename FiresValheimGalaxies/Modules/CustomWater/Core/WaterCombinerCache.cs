@@ -613,7 +613,7 @@ namespace VerdantsAscent.Water.Core
         private static string GetCachePath(string worldName)
         {
             string configPath = BepInEx.Paths.ConfigPath;
-            return Path.Combine(configPath, "VerdantsAscent", "WaterCache", $"{worldName}_water.bin");
+            return VerdantsAscent.Terrain.Lifecycle.AdminCheck.SafeCacheFile(Path.Combine(configPath, "VerdantsAscent", "WaterCache"), worldName, "_water.bin");
         }
 
         private static WorldWaterCacheData SnapshotCacheData(WorldWaterCacheData source)

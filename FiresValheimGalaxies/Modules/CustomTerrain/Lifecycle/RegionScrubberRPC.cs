@@ -93,6 +93,11 @@ namespace VerdantsAscent.Terrain.Lifecycle
             }
 
             Unpack(pkg, out var center, out var radius, out var scope, out var source);
+            if (!AdminCheck.IsSaneVector(center) || !AdminCheck.IsSaneRadius(radius, 256f))
+            {
+                FiresLogger.LogWarning($"[RegionScrubberRPC] Scrub request from {sender} has a bad center/radius ({radius}) — rejected.");
+                return;
+            }
 
             // Apply locally (this writes the server's authoritative state
             // to ZDOs the server owns).
@@ -112,10 +117,21 @@ namespace VerdantsAscent.Terrain.Lifecycle
             // Every peer applies the apply broadcast locally. No admin
             // re-check — the server validated in HandleRequest and chose
             // to broadcast. Trust the server.
+            // 0.1.60 security: APPLY is accepted only from the server.
+            if (!AdminCheck.IsFromServer(sender))
+            {
+                FiresLogger.LogWarning($"[RegionScrubberRPC] APPLY from non-server peer {sender} — dropped.");
+                return;
+            }
             Unpack(pkg, out var center, out var radius, out var scope, out var source);
+            if (!AdminCheck.IsSaneVector(center) || !AdminCheck.IsSaneRadius(radius, 256f))
+            {
+                FiresLogger.LogWarning($"[RegionScrubberRPC] APPLY with a bad center/radius ({radius}) — dropped.");
+                return;
+            }
 
             // Skip the server's own loopback (it already applied in
-            // HandleRequest). Detected by sender being the server peer.
+            // HandleRequest).
             if (ZNet.instance != null && ZNet.instance.IsServer())
             {
                 FiresLogger.LogVerbose($"[RegionScrubberRPC] Skipping APPLY loopback on server.");

@@ -262,14 +262,16 @@ namespace VerdantsAscent.Water.Core
 
             IsFrozen = true;
 
-            Debug.Log($"[FrozenWaterController] Initialized {(IsSnowMode ? "SNOW" : "ICE")} surface at {transform.position}");
+            FiresLogger.LogDebug($"[FrozenWaterController] Initialized {(IsSnowMode ? "SNOW" : "ICE")} surface at {transform.position}");   // 0.1.46: per-event, Debug (R-1013N: 22+ at Info)
         }
 
         /// <summary>
         /// Removes the ice surface and restores normal water.
         /// Called when liquid type changes away from Ice.
         /// </summary>
-        public void Thaw()
+        // 0.1.47 (the lead, R-1013N: 22 "Thawed ice" lines were 22 waters UNLOADING, not melting): a teardown passes
+        // unloading = true and says nothing; only a real melt (the liquid changed away from ice) logs.
+        public void Thaw(bool unloading = false)
         {
             IsFrozen = false;
             _holes.Clear();
@@ -277,6 +279,8 @@ namespace VerdantsAscent.Water.Core
             DestroyEdgeWalls();
 
             if (_waterGO != null) { Destroy(_waterGO); _waterGO = null; }
+            if (_iceCollider != null) { _iceCollider.sharedMesh = null; _iceCollider.enabled = false; }
+            // 0.1.45: the old collider lets go first (Destroy is deferred). 0.1.48: this Destroy sat inside that comment, so every rebuild leaked an IceShell.
             if (_iceGO != null) { Destroy(_iceGO); _iceGO = null; }
             if (_waterMesh != null) { Destroy(_waterMesh); _waterMesh = null; }
             if (_iceMesh != null) { Destroy(_iceMesh); _iceMesh = null; }
@@ -288,7 +292,7 @@ namespace VerdantsAscent.Water.Core
             _iceRenderer = null;
             _iceCollider = null;
 
-            Debug.Log($"[FrozenWaterController] Thawed ice at {transform.position}");
+            if (!unloading) FiresLogger.LogDebug($"[FrozenWaterController] Thawed ice at {transform.position}");
         }
 
         /// <summary>
@@ -360,6 +364,8 @@ namespace VerdantsAscent.Water.Core
             DestroyEdgeWalls();
 
             if (_waterGO != null) Destroy(_waterGO);
+            if (_iceCollider != null) { _iceCollider.sharedMesh = null; _iceCollider.enabled = false; }
+            // 0.1.45: the old collider lets go first (Destroy is deferred). 0.1.48: this Destroy sat inside that comment, so every rebuild leaked an IceShell.
             if (_iceGO != null) Destroy(_iceGO);
             if (_waterMesh != null) Destroy(_waterMesh);
             if (_iceMesh != null) Destroy(_iceMesh);
@@ -398,6 +404,8 @@ namespace VerdantsAscent.Water.Core
             }
 
             // --- Ice/Snow shell (outer casing) ---
+            if (_iceCollider != null) { _iceCollider.sharedMesh = null; _iceCollider.enabled = false; }
+            // 0.1.45: the old collider lets go first (Destroy is deferred). 0.1.48: this Destroy sat inside that comment, so every rebuild leaked an IceShell.
             if (_iceGO != null) Destroy(_iceGO);
 
             _iceGO = new GameObject(IsSnowMode ? "SnowShell" : "IceShell");
@@ -892,6 +900,9 @@ namespace VerdantsAscent.Water.Core
                 }
             }
 
+            // 0.1.44 (R-1013J: the 'no vertices' error again, on a restored combiner): Clear() on a mesh the collider still holds
+            // makes Unity re-cook the collider on the EMPTY mesh. Let go of it first; it is handed back below only with vertices.
+            if (_iceCollider != null) _iceCollider.sharedMesh = null;
             _colliderMesh.Clear();
             if (verts.Count > 0 && tris.Count > 0)
             {
@@ -903,8 +914,12 @@ namespace VerdantsAscent.Water.Core
 
             if (_iceCollider != null)
             {
+                // 0.1.43 (R-1013E: 'Mesh Collider ... IceColliderMesh ... doesn't have any vertices'): an empty mesh (no ice this
+                // frame) is never handed to the collider; the collider is off until there is ice again.
+                bool any = _colliderMesh != null && _colliderMesh.vertexCount > 0;
                 _iceCollider.sharedMesh = null;
-                _iceCollider.sharedMesh = _colliderMesh;
+                if (any) _iceCollider.sharedMesh = _colliderMesh;
+                if (_iceCollider.enabled != any) _iceCollider.enabled = any;
             }
         }
 

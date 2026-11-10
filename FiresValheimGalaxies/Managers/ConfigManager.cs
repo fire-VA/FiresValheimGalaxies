@@ -55,70 +55,58 @@ namespace VerdantsAscent.Managers
         {
             if (config == null) return;
 
+            // 0.1.56 (Fire 10-20 player-facing config rule): short plain descriptions; UseNewTilePersistence (internal switch) hidden.
             configVerboseLogging = config.Bind(
-                "General", "VerboseLogging", false,
-                "Enable verbose log output for terrain/water diagnostics.");
+                "Galaxies - General", "VerboseLogging", false,
+                "Write extra terrain and water diagnostics to the log.");
 
             configServerAuthority = config.Bind(
-                "General", "ServerAuthority", true,
-                "When true, the server forces clients to match its config (ConfigSync lock).");
+                "Galaxies - General", "ServerAuthority", true,
+                "The server makes every client use its settings.");
 
             configHeightCacheResolution = config.Bind(
-                "Water", "HeightCacheResolution", 4096,
-                "Grid resolution (X by X) for WorldHeightCache used by auto-water river detection. Range [1024, 20480].");
+                "Galaxies - Water", "HeightCacheResolution", 4096,
+                new ConfigDescription("Detail of the height map used to find rivers.", new AcceptableValueRange<int>(1024, 20480)));
 
             configHeightCacheSamplesPerFrame = config.Bind(
-                "Water", "HeightCacheSamplesPerFrame", 5000,
-                "Samples per frame while building WorldHeightCache. Range [500, 20000].");
+                "Galaxies - Water", "HeightCacheSamplesPerFrame", 5000,
+                new ConfigDescription("Height samples per frame while the river map builds.", new AcceptableValueRange<int>(500, 20000)));
 
             configUseNewTilePersistence = config.Bind(
-                "Terrain", "UseNewTilePersistence", false,
-                "When true, terrain ops save through the new tile-anchor system (64m anchors at Y=-5000) "
-                + "instead of the legacy TerrainCombinerAnchor at Y=0. Default OFF until validated. "
-                + "See Docs/TERRAIN_PERSISTENCE_REDESIGN_PLAN.md.");
+                "Galaxies - General", "UseNewTilePersistence", false,
+                new ConfigDescription("Save terrain edits with the new tile system (internal, unfinished).", null,
+                    new System.ComponentModel.BrowsableAttribute(false)));
 
+            // 0.1.57 (Discord how-to audit): nothing reads this any more (the water look moved to TossinShade); kept bound (saved values,
+            // server sync) but hidden from the settings window.
             configFiresWaterEnabled = config.Bind(
-                "FiresWater", "Enabled", true,
-                "Master switch for the Custom/FiresWater shader. When true, FAT custom water meshes "
-                + "render with the two-pass shader (visible from below with proper wave-synced surface). "
-                + "When false, FAT water uses the captured vanilla material as-is (one-sided).");
+                "Galaxies - Water", "Enabled", true,
+                new ConfigDescription("No longer used (the water look is TossinShade's).", null, new System.ComponentModel.BrowsableAttribute(false)));
 
             configFiresWaterSwapVanilla = config.Bind(
-                "FiresWater", "SwapVanillaOcean", true,
-                "When true (and Enabled is also true), every vanilla WaterVolume's surface shader is swapped "
-                + "to Custom/FiresWater. Affects ALL ocean rendering in the world. The swap is value-preserving "
-                + "(all 33 vanilla water properties transfer to the new shader). Flip off for A/B comparison.");
+                "Galaxies - Water", "SwapVanillaOcean", true,
+                "Use the Galaxies water shader for the whole vanilla ocean too.");
 
             configFiresWaterUnderwaterEnv = config.Bind(
-                "FiresWater", "UnderwaterEnv", true,
-                "When true, a custom 'FiresUnderwater' environment is registered with EnvMan and force-"
-                + "activated whenever the local player's eye drops below a water surface. Drives fog, sun "
-                + "color, ambient light, and wet-status together via the game's own env-blend system "
-                + "(2-second crossfade). Independent of the shader Enabled toggle.");
+                "Galaxies - Water", "UnderwaterEnv", true,
+                "Underwater fog, light and colour while your view is below water.");
 
             configOceanRingExtendEnabled = config.Bind(
-                "FiresWater", "OceanRingExtendEnabled", true,
-                "When true, bump ZoneSystem.m_activeArea while the local player is over deep ocean so the "
-                + "animated FiresWater zone meshes cover a wider ring and storm waves don't visibly cut "
-                + "off at the vanilla LOD-plane boundary. Reverts to vanilla the moment the player returns "
-                + "near shore. Client-only — does not affect other players.");
+                "Galaxies - Water", "OceanRingExtendEnabled", true,
+                "Load a wider ring of ocean at sea so storm waves do not cut off.");
 
             configOceanRingExtendedActiveArea = config.Bind(
-                "FiresWater", "OceanRingExtendedActiveArea",
+                "Galaxies - Water", "OceanRingExtendedActiveArea",
                 2,
                 new ConfigDescription(
-                    "ZoneSystem.m_activeArea value used while over deep ocean. 1=vanilla (3x3 zones, ~96m "
-                    + "radius), 2=5x5 (~160m), 3=7x7 (~224m). Larger values load more zones around the "
-                    + "player so cost more memory/CPU/network while at sea.",
+                    "Ring size at sea: 1 = vanilla, 2 = 5x5 zones, 3 = 7x7; bigger costs more.",
                     new AcceptableValueRange<int>(1, 4)));
 
             configOceanRingDepthThreshold = config.Bind(
-                "FiresWater", "OceanRingDepthThreshold",
+                "Galaxies - Water", "OceanRingDepthThreshold",
                 10f,
                 new ConfigDescription(
-                    "Water column depth (meters below sea level Y=30) at the player's position above which "
-                    + "the ring expansion activates. Lower = activates closer to shore (more aggressive). "
-                    + "Higher = only in true deep ocean.",
+                    "Water depth (m) below you before the wider ring turns on.",
                     new AcceptableValueRange<float>(1f, 30f)));
 
             // NOTE: this ConfigManager once carried "FiresWater/Skybox*" A/B-test entries cloned

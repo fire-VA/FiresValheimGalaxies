@@ -41,42 +41,42 @@ namespace VerdantsAscent.Water.Core
         /// When these prefabs spawn from ZDO and have our custom ice data,
         /// we add the appropriate ice controller to restore the ice surface.
         /// </summary>
-        private static readonly HashSet<string> s_icePrefabNames = new HashSet<string>
-        {
-            "ice1", "ice_floor", "StandaloneIce", "ice1(Clone)", "ice_floor(Clone)", "StandaloneIce(Clone)"
-        };
+        // 0.1.74: the name set became three prefab hashes (below)
 
         /// <summary>
         /// Patch ZNetView.Awake to detect ice1 prefabs with custom ice data.
         /// When found, adds the appropriate controller so it can restore from ZDO in Start().
         /// </summary>
+        // 0.1.74 (piece-create audit row 11, [generator] / [saddles] / [lead] 11-08): FAT owns ice restore (its controllers and ZDO keys); this
+        // copy is not even patched while com.Fire.FiresAdminTerrain is loaded (Galaxies soft-depends on FAT, so FAT is in the Chainloader first).
+        // Without FAT it runs, and every create costs one ZDO prefab compare against three static hashes (was a 6-name Contains loop over
+        // gameObject.name, a string allocation, and two GetStableHashCode per create). The three prefabs: the old name set's ice1 / ice_floor /
+        // StandaloneIce (the "(Clone)" names are the same prefabs).
+        private static readonly int s_hIce1 = "ice1".GetStableHashCode(), s_hIceFloor = "ice_floor".GetStableHashCode(), s_hStandalone = "StandaloneIce".GetStableHashCode();
+
         [HarmonyPatch(typeof(ZNetView), "Awake")]
-        [HarmonyPostfix]
-        [HarmonyPriority(Priority.Low)]
+        private static class IceRestorePatch
+        {
+            private static bool Prepare()
+            {
+                bool fat = BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("com.Fire.FiresAdminTerrain");
+                FiresLogger.LogInfo(fat ? "[IceSlidingPatches] ice restore on ZNetView.Awake: FiresAdminTerrain owns it (loaded), Galaxies' copy not patched"
+                                        : "[IceSlidingPatches] ice restore on ZNetView.Awake: FiresAdminTerrain not loaded, Galaxies runs it (prefab-hash check)");
+                return !fat;
+            }
+
+            [HarmonyPostfix]
+            [HarmonyPriority(Priority.Low)]
+            private static void Postfix(ZNetView __instance) => ZNetView_Awake_IceRestore_Postfix(__instance);
+        }
+
         private static void ZNetView_Awake_IceRestore_Postfix(ZNetView __instance)
         {
-            if (__instance == null || __instance.GetZDO() == null) return;
-
-            // Quick name check to avoid ZDO reads on every object
-            string goName = __instance.gameObject.name;
-            bool nameMatch = false;
-            foreach (var name in s_icePrefabNames)
-            {
-                if (goName.Contains(name) || goName.StartsWith(name))
-                {
-                    nameMatch = true;
-                    break;
-                }
-            }
-
-            // Also check the prefab hash for ice1/ice_floor
-            if (!nameMatch)
-            {
-                int prefabHash = __instance.GetZDO().GetPrefab();
-                if (prefabHash != "ice1".GetStableHashCode()
-                    && prefabHash != "ice_floor".GetStableHashCode())
-                    return;
-            }
+            if (__instance == null) return;
+            var zdo = __instance.GetZDO();
+            if (zdo == null) return;
+            int prefabHash = zdo.GetPrefab();
+            if (prefabHash != s_hIce1 && prefabHash != s_hIceFloor && prefabHash != s_hStandalone) return;
 
             // Check for new FloatingIceController data first
             if (FloatingIceController.ZdoHasFloatingIceData(__instance.GetZDO()))
@@ -231,11 +231,20 @@ namespace VerdantsAscent.Water.Core
             Collider lastGround = character.GetLastGroundCollider();
             if (lastGround == null) return false;
 
+            // 0.1.50 (perf audit): .name allocates a string on every call, and this runs several times a frame per grounded
+            // character. The answer per collider never changes (names are set at creation), so it is cached by instance id.
+            int id = lastGround.GetInstanceID();
+            if (s_iceByCollider.TryGetValue(id, out bool cached)) return cached;
             string name = lastGround.gameObject.name;
-            return name == ICE_COLLIDER_NAME
+            bool ice = name == ICE_COLLIDER_NAME
                 || name == ICE_STANDALONE_SHELL_NAME
                 || name == ICE_OVERLAY_NAME;
+            if (s_iceByCollider.Count > 4096) s_iceByCollider.Clear();   // destroyed colliders' ids never come back; keep it bounded
+            s_iceByCollider[id] = ice;
+            return ice;
         }
+
+        private static readonly System.Collections.Generic.Dictionary<int, bool> s_iceByCollider = new System.Collections.Generic.Dictionary<int, bool>();
 
         #endregion
 

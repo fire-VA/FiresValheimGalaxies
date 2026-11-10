@@ -58,6 +58,9 @@ namespace VerdantsAscent.Water.Core
 
         // Wave calculation (from WaterVolume)
         protected static float s_waterTime = 0f;
+        private static int s_waterTimeFrame = -1;
+        private static readonly int s_waterTimeId = Shader.PropertyToID("_WaterTime");
+        private Material m_timeMaterial;
 
         // Base wave values (not affected by scale)
         protected const float BASE_WAVE_SCALE = 1f;
@@ -169,8 +172,9 @@ namespace VerdantsAscent.Water.Core
 
             float dt = Time.deltaTime;
 
-            // Update water time (synchronized like WaterVolume)
-            s_waterTime += dt;
+            // Update water time (synchronized like WaterVolume). 0.1.50 (perf audit): once per frame, not once per water body -
+            // N bodies each adding dt ran the shared clock N times too fast.
+            if (s_waterTimeFrame != Time.frameCount) { s_waterTimeFrame = Time.frameCount; s_waterTime += dt; }
 
             // Update water simulation
             UpdateWater(dt);
@@ -186,10 +190,9 @@ namespace VerdantsAscent.Water.Core
             }
 
             // Update material time
-            if (m_meshRenderer != null && m_meshRenderer.material != null)
-            {
-                m_meshRenderer.material.SetFloat("_WaterTime", s_waterTime);
-            }
+            // 0.1.50: the instance material and the property id are cached (the .material getter twice + a string lookup per frame)
+            if (m_timeMaterial == null && m_meshRenderer != null) m_timeMaterial = m_meshRenderer.material;
+            if (m_timeMaterial != null) m_timeMaterial.SetFloat(s_waterTimeId, s_waterTime);
         }
 
         protected virtual void FixedUpdate()

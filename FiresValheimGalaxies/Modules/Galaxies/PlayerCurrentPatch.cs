@@ -24,9 +24,23 @@ namespace VerdantsAscent.Galaxies
     [HarmonyPatch(typeof(Character), "UpdateMotion")]
     internal static class PlayerCurrentPatch
     {
+        private static int s_calls, s_wet, s_pushed; private static float s_sayAt;
+        // 0.1.63: Debug proof of the early exit, once a minute: calls / in water / pushed
+        private static void Count()
+        {
+            if (Time.unscaledTime < s_sayAt) return;
+            if (s_sayAt > 0f) FiresLogger.LogDebug($"[Currents] character current last 60 s: {s_calls} UpdateMotion call(s), {s_wet} in water, {s_pushed} pushed (the rest left at the first test)");
+            s_sayAt = Time.unscaledTime + 60f; s_calls = s_wet = s_pushed = 0;
+        }
+
         private static void Postfix(Character __instance)
         {
-            if (GalaxiesConfig.EnableMod == null || !GalaxiesConfig.EnableMod.Value) return;
+            // 0.1.63 ([wishbone], lead 10-28 perf: Fire's round 45 PatchTimer "PlayerCurrentPatch.Postfix 178-213 ms / 31k calls", every character's
+            // UpdateMotion): the cheapest test first - a character out of water (almost all of them) leaves before any config / string / body read.
+            s_calls++;
+            if (__instance == null || !__instance.InWater()) { Count(); return; }
+            s_wet++;
+            if (GalaxiesConfig.EnableMod == null || !GalaxiesConfig.EnableMod.Value || !GalaxiesConfig.GalaxiesOwnsOcean) return;
             if (__instance == null || __instance.m_body == null || __instance.m_body.isKinematic) return;
 
             // Universal skips (apply to every Character, no config gate):
@@ -81,7 +95,8 @@ namespace VerdantsAscent.Galaxies
             vel.z += bias.z;
             __instance.m_body.velocity = vel;
 
-            FiresLogger.LogVerbose(
+            s_pushed++; Count();
+            if (FiresLogger.VerboseEnabled) FiresLogger.LogVerbose(   // 0.1.63: no string built unless verbose logging is on
                 $"Character current actor={(isLocalPlayer ? "Player" : __instance.name)} " +
                 $"src={sample.Source} str={sample.Strength:0.00} bias={bias}");
         }

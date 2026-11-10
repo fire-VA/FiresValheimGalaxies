@@ -41,7 +41,7 @@ namespace VerdantsAscent.Galaxies
                     try { File.WriteAllText(path, sb.ToString()); args.Context.AddString("[moondiag] wrote " + path); }
                     catch (Exception e) { args.Context.AddString("[moondiag] FILE WRITE FAILED: " + e.Message); }
                 },
-                isCheat: false);
+                isCheat: true);   // 0.1.34: admin / devcommands only, as the help says
         }
 
         private static string V(Vector3 v) => $"({v.x:F1},{v.y:F1},{v.z:F1})";
@@ -128,7 +128,9 @@ namespace VerdantsAscent.Galaxies
             var mi = FiresMoon.MoonInstance;
             if (mi == null)
             {
-                L("MoonInstance = NULL — EnsureInstance never ran; see gates/assets above for which check failed.");
+                L(FiresMoon.SuppressDisc
+                    ? "MoonInstance = NULL by design: SuppressDisc=True hides the skybox disc, and the orbital body that follows the vanilla moon (ORBITALS below) is the moon."
+                    : "MoonInstance = NULL - EnsureInstance never ran; see gates/assets above for which check failed.");
             }
             else
             {

@@ -73,19 +73,19 @@ namespace VerdantsAscent.Utilities
         private static void BuildDiving(FiresCore.Help.HelpContentWriter w)
         {
             w.Header("Diving");
-            w.Paragraph("Swim DOWN. The surface is no longer a wall:");
+            w.Paragraph("Swim DOWN. Player swimming is Fires Unified Core's [Swimming] setting " +
+                "(Auto turns it on with Galaxies; Off is vanilla swimming):");
             w.Bullet("Hold Crouch — descend");
             w.Bullet("Hold Jump — rise");
-            w.Bullet("Hold Run — swim faster");
-            w.Bullet("Stamina drains while underwater (UnderwaterStaminaDrain) — plan your dives.");
-            w.Bullet("Creatures dive too — sea serpents will follow you down " +
-                "(CreatureDivingEnabled).");
+            w.Bullet("Let go — hold your depth");
+            w.Bullet("Creatures dive too, with FiresMonsterOverhaul + Fires Advanced Player Movement: sea serpents follow you down " +   // 0.1.68: FMO only
+                "(FiresMonsterOverhaul's creature diving settings).");
         }
 
         private static void BuildAdmin(FiresCore.Help.HelpContentWriter w)
         {
             w.AdminHeader("Tuning & Diagnostics");
-            w.SubHeader("Key Config ([Galaxies - *] in F8, live sliders)");
+            w.SubHeader("Key Config ([Galaxies - *] in F1 > Config settings, live sliders)");   // 0.1.57: the settings live in the F1 hub now
             w.Bullet("General.EnableMod — master switch for the moon/tide/current system");
             w.Bullet("Moon: Distance, SizeScale, SynodicDays (game days per lunar cycle — drives " +
                 "phase AND tides), brightness/terminator look");

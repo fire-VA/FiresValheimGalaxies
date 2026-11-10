@@ -157,9 +157,9 @@ namespace VerdantsAscent.Galaxies
                         FiresLogger.LogWarning($"[waterdiag] file write failed: {e}");
                     }
                 },
-                isCheat: false);
+                isCheat: true);   // 0.1.34: admin / devcommands only, as the help says
 
-            FiresLogger.LogInfo("[waterdiag] console command 'galaxies_waterdiag' registered.");
+            FiresLogger.LogDebug("[waterdiag] console command 'galaxies_waterdiag' registered.");
         }
 
         // Read one or more public static fields off an FTS type by reflection and print

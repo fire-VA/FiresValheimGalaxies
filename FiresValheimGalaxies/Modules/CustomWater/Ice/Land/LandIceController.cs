@@ -467,6 +467,8 @@ namespace VerdantsAscent.Water.Core
 
         private void Cleanup()
         {
+            if (_iceCollider != null) { _iceCollider.sharedMesh = null; _iceCollider.enabled = false; }
+            // 0.1.45: the old collider lets go first (Destroy is deferred). 0.1.49: this Destroy sat inside that comment, so every rebuild leaked the shell.
             if (_iceGO != null) Destroy(_iceGO);
             if (_iceMesh != null) Destroy(_iceMesh);
             if (_colliderMesh != null) Destroy(_colliderMesh);
@@ -873,6 +875,8 @@ namespace VerdantsAscent.Water.Core
 
         private void CreateGameObjects()
         {
+            if (_iceCollider != null) { _iceCollider.sharedMesh = null; _iceCollider.enabled = false; }
+            // 0.1.45: the old collider lets go first (Destroy is deferred). 0.1.49: this Destroy sat inside that comment, so every rebuild leaked the shell.
             if (_iceGO != null) Destroy(_iceGO);
             _iceGO = new GameObject("IceOverlay");
             _iceGO.transform.SetParent(transform);
@@ -1118,6 +1122,9 @@ namespace VerdantsAscent.Water.Core
 
             // Collider uses only the top face (no skirt)
             if (_colliderMesh == null) _colliderMesh = new Mesh { name = "LandIceCollider" };
+            // 0.1.44 (R-1013J: the 'no vertices' error again, on a restored combiner): Clear() on a mesh the collider still holds
+            // makes Unity re-cook the collider on the EMPTY mesh. Let go of it first; it is handed back below only with vertices.
+            if (_iceCollider != null) _iceCollider.sharedMesh = null;
             _colliderMesh.Clear();
             if (topFaceVertCount > 0)
             {
@@ -1148,8 +1155,12 @@ namespace VerdantsAscent.Water.Core
 
             if (_iceCollider != null)
             {
+                // 0.1.43 (R-1013E: 'Mesh Collider ... IceColliderMesh ... doesn't have any vertices'): an empty mesh (no ice this
+                // frame) is never handed to the collider; the collider is off until there is ice again.
+                bool any = _colliderMesh != null && _colliderMesh.vertexCount > 0;
                 _iceCollider.sharedMesh = null;
-                _iceCollider.sharedMesh = _colliderMesh;
+                if (any) _iceCollider.sharedMesh = _colliderMesh;
+                if (_iceCollider.enabled != any) _iceCollider.enabled = any;
             }
         }
 

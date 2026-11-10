@@ -204,6 +204,24 @@ namespace VerdantsAscent.Water.Core
         public CustomLiquidType CustomLiquidType { get; set; } = CustomLiquidType.Water;
 
         /// <summary>
+        /// 0.1.39 (Fire: Vedr's winter freezes Galaxies water like other water): true while this water is iced only for the
+        /// season. Seasonal ice is never saved: the anchor stores plain water, so it can't outlast winter or Vedr.
+        /// </summary>
+        public bool SeasonalIce { get; private set; }
+
+        /// <summary>The type the anchor saves: plain water while the ice is only seasonal.</summary>
+        public CustomLiquidType SavedCustomLiquidType => SeasonalIce ? CustomLiquidType.Water : CustomLiquidType;
+
+        /// <summary>Seasonal freeze/thaw (SeasonalWaterFreeze). Freezes only plain water; thaws only its own seasonal ice.</summary>
+        public void SetSeasonalIce(bool frozen)
+        {
+            if (frozen == SeasonalIce) return;
+            if (frozen && CustomLiquidType != CustomLiquidType.Water) return;
+            SeasonalIce = frozen;
+            ApplyCustomLiquidType(frozen ? CustomLiquidType.Ice : CustomLiquidType.Water, false);
+        }
+
+        /// <summary>
         /// Damage handler for hazardous liquids. Null for safe liquids (water, tar, ice).
         /// </summary>
         private LiquidDamageHandler _damageHandler;
@@ -353,7 +371,7 @@ namespace VerdantsAscent.Water.Core
             var frozenController = GetComponent<FrozenWaterController>();
             if (frozenController != null)
             {
-                frozenController.Thaw();
+                frozenController.Thaw(unloading: true);   // 0.1.47: teardown, not a melt
             }
 
             // Clean up ambient VFX
@@ -590,7 +608,7 @@ namespace VerdantsAscent.Water.Core
             var frozenController = GetComponent<FrozenWaterController>();
             if (frozenController != null)
             {
-                frozenController.Thaw();
+                frozenController.Thaw(unloading: true);   // 0.1.47: teardown, not a melt
                 Destroy(frozenController);
             }
 
@@ -742,7 +760,7 @@ namespace VerdantsAscent.Water.Core
         /// This is the true geometry check - water disks are circular, not rectangular.
         /// Used to prevent false positives from the rectangular bounding box.
         /// </summary>
-        private bool IsWithinAnyDiskRadius(Vector3 worldPos)
+        internal bool IsWithinAnyDiskRadius(Vector3 worldPos)
         {
             for (int i = 0; i < _waterDisks.Count; i++)
             {
@@ -1074,9 +1092,8 @@ namespace VerdantsAscent.Water.Core
         /// </summary>
         public static WaterMeshCombiner GetCombinerAt(Vector3 worldPos)
         {
-            // Clean up null entries
-            s_allCombiners.RemoveAll(c => c == null);
-
+            // 0.1.50 (perf audit): no RemoveAll here - this runs per character several times a frame, OnDestroy already takes a
+            // combiner out, and the loop skips a destroyed one anyway.
             foreach (var combiner in s_allCombiners)
             {
                 if (combiner != null && combiner.ContainsPosition(worldPos))
@@ -1488,6 +1505,17 @@ namespace VerdantsAscent.Water.Core
         /// </summary>
         public void SetCustomLiquidType(CustomLiquidType newType)
         {
+            // 0.1.39: a type someone chose (tool, command) replaces seasonal ice and is saved.
+            if (SeasonalIce)
+            {
+                SeasonalIce = false;
+                if (newType == CustomLiquidType) { SaveToAnchor(); return; }
+            }
+            ApplyCustomLiquidType(newType, true);
+        }
+
+        private void ApplyCustomLiquidType(CustomLiquidType newType, bool save)
+        {
             if (CustomLiquidType == newType) return;
 
             var oldType = CustomLiquidType;
@@ -1568,8 +1596,8 @@ namespace VerdantsAscent.Water.Core
                 }
             }
 
-            // Save new state
-            SaveToAnchor();
+            // Save new state (never for seasonal ice)
+            if (save) SaveToAnchor();
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+using VerdantsAscent.Terrain.Lifecycle;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -338,13 +339,15 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleCreateWater(long sender, ZPackage pkg)
         {
             if (pkg == null || !IsServer()) return;
+            if (!RemoteAdminOk(sender, "CreateWater")) return;
 
             try
             {
                 byte[] diskData = pkg.ReadByteArray();
-                long originPlayerId = pkg.ReadLong();
+                pkg.ReadLong(); long originPlayerId = OriginFrom(sender); // 0.1.60: identity from the peer, not the packet
 
                 var disk = WaterDisk.Deserialize(diskData);
+                if (!IsSaneDisk(disk)) { Debug.LogWarning($"[WaterOperationRPC] Create from {sender} has an out-of-range disk - rejected."); return; }
                 ServerHandleCreateAndBroadcast(disk, originPlayerId);
             }
             catch (Exception ex)
@@ -359,11 +362,12 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleRemoveWater(long sender, ZPackage pkg)
         {
             if (pkg == null || !IsServer()) return;
+            if (!RemoteAdminOk(sender, "RemoveWater")) return;
 
             try
             {
                 int stableHash = pkg.ReadInt();
-                long originPlayerId = pkg.ReadLong();
+                pkg.ReadLong(); long originPlayerId = OriginFrom(sender); // 0.1.60: identity from the peer, not the packet
                 ServerHandleRemoveAndBroadcast(stableHash, originPlayerId);
             }
             catch (Exception ex)
@@ -378,6 +382,7 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleModifyWater(long sender, ZPackage pkg)
         {
             if (pkg == null || !IsServer()) return;
+            if (!RemoteAdminOk(sender, "ModifyWater")) return;
 
             try
             {
@@ -388,7 +393,9 @@ namespace VerdantsAscent.Water.Core
                 float? newDepth = hasDepth ? pkg.ReadSingle() : (float?)null;
                 bool hasSurface = pkg.ReadBool();
                 float? newSurfaceY = hasSurface ? pkg.ReadSingle() : (float?)null;
-                long originPlayerId = pkg.ReadLong();
+                pkg.ReadLong(); long originPlayerId = OriginFrom(sender); // 0.1.60: identity from the peer, not the packet
+
+                if (!SaneOpt(newRadius, MAX_DISK_RADIUS) || !SaneOpt(newDepth, MAX_DISK_DEPTH) || (newSurfaceY.HasValue && !IsFinite(newSurfaceY.Value))) { Debug.LogWarning($"[WaterOperationRPC] Modify from {sender} has out-of-range values - rejected."); return; }
 
                 ServerHandleModifyAndBroadcast(stableHash, newRadius, newDepth, newSurfaceY, originPlayerId);
             }
@@ -404,12 +411,14 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleClearZoneWater(long sender, ZPackage pkg)
         {
             if (pkg == null || !IsServer()) return;
+            if (!RemoteAdminOk(sender, "ClearZoneWater")) return;
 
             try
             {
                 Vector3 center = pkg.ReadVector3();
                 float radius = pkg.ReadSingle();
-                long originPlayerId = pkg.ReadLong();
+                pkg.ReadLong(); long originPlayerId = OriginFrom(sender); // 0.1.60: identity from the peer, not the packet
+                if (!AdminCheck.IsSaneVector(center) || !AdminCheck.IsSaneRadius(radius, MAX_CLEAR_RADIUS)) { Debug.LogWarning($"[WaterOperationRPC] ClearZone from {sender} has a bad center/radius ({radius}) - rejected."); return; }
                 ServerHandleClearZoneAndBroadcast(center, radius, originPlayerId);
             }
             catch (Exception ex)
@@ -535,6 +544,7 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleCreateConfirmed(long sender, ZPackage pkg)
         {
             if (pkg == null) return;
+            if (!FromServerOk(sender, "CreateConfirmed")) return;
 
             try
             {
@@ -566,6 +576,7 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleRemoveConfirmed(long sender, ZPackage pkg)
         {
             if (pkg == null) return;
+            if (!FromServerOk(sender, "RemoveConfirmed")) return;
 
             try
             {
@@ -592,6 +603,7 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleModifyConfirmed(long sender, ZPackage pkg)
         {
             if (pkg == null) return;
+            if (!FromServerOk(sender, "ModifyConfirmed")) return;
 
             try
             {
@@ -624,6 +636,7 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleClearZoneConfirmed(long sender, ZPackage pkg)
         {
             if (pkg == null) return;
+            if (!FromServerOk(sender, "ClearZoneConfirmed")) return;
 
             try
             {
@@ -649,6 +662,7 @@ namespace VerdantsAscent.Water.Core
         /// </summary>
         private static void RPC_HandleClearAllWater(long sender, ZPackage pkg)
         {
+            if (!FromServerOk(sender, "ClearAllWater")) return;
             // Server already handled this locally - only clients need to process
             if (IsServer()) return;
 
@@ -712,11 +726,13 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleSyncCache(long sender, ZPackage pkg)
         {
             if (pkg == null) return;
+            if (!FromServerOk(sender, "SyncCache")) return;
             if (IsServer()) return; // Server doesn't receive sync, only sends
 
             try
             {
                 int diskCount = pkg.ReadInt();
+                if (!SaneCount(diskCount, pkg)) { Debug.LogWarning($"[WaterOperationRPC] SyncCache disk count {diskCount} out of range - dropped."); return; }
 
                 Debug.Log($"[WaterOperationRPC] Receiving water cache sync: {diskCount} disks");
 
@@ -927,7 +943,7 @@ namespace VerdantsAscent.Water.Core
             try
             {
                 Vector3 position = pkg.ReadVector3();
-                long requesterId = pkg.ReadLong();
+                pkg.ReadLong(); long requesterId = AdminCheck.IsLocalSender(sender) ? GetLocalPlayerId() : sender; // 0.1.60: reply to the real sender
 
                 Debug.Log($"[WaterOperationRPC] Server received disk sync request from peer {requesterId} for position {position:F1}");
 
@@ -1006,12 +1022,14 @@ namespace VerdantsAscent.Water.Core
         private static void RPC_HandleDiskSyncResponse(long sender, ZPackage pkg)
         {
             if (pkg == null) return;
+            if (!FromServerOk(sender, "DiskSyncResponse")) return;
             if (IsServer()) return;
 
             try
             {
                 Vector3 position = pkg.ReadVector3();
                 int diskCount = pkg.ReadInt();
+                if (!SaneCount(diskCount, pkg)) { Debug.LogWarning($"[WaterOperationRPC] DiskSyncResponse disk count {diskCount} out of range - dropped."); return; }
 
                 Debug.Log($"[WaterOperationRPC] Received disk sync response: {diskCount} disks for position {position:F1}");
 
@@ -1272,6 +1290,48 @@ namespace VerdantsAscent.Water.Core
         /// Checks if we are the server or single player.
         /// IMPORTANT: Returns FALSE if ZNet is not ready yet, to prevent clients acting as servers during load.
         /// </summary>
+        // ── 0.1.60 security helpers ──
+        private const float MAX_DISK_RADIUS = 256f;
+        private const float MAX_DISK_DEPTH = 512f;
+        private const float MAX_CLEAR_RADIUS = 256f;
+        private const int MAX_SYNC_DISKS = 10000;
+
+        private static bool RemoteAdminOk(long sender, string op)
+        {
+            if (AdminCheck.IsAdmin(sender)) return true;
+            Debug.LogWarning($"[WaterOperationRPC] {op} from non-admin peer {sender} - rejected.");
+            return false;
+        }
+
+        private static bool FromServerOk(long sender, string op)
+        {
+            if (AdminCheck.IsFromServer(sender)) return true;
+            Debug.LogWarning($"[WaterOperationRPC] {op} from non-server peer {sender} - dropped.");
+            return false;
+        }
+
+        private static long OriginFrom(long sender) => AdminCheck.IsLocalSender(sender) ? GetLocalPlayerId() : sender;
+
+        private static bool IsFinite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+
+        private static bool SaneOpt(float? v, float max) => !v.HasValue || (IsFinite(v.Value) && v.Value >= 0f && v.Value <= max);
+
+        private static bool IsSaneDisk(WaterDisk d)
+        {
+            if (d == null) return false;
+            return AdminCheck.IsSaneVector(d.Position) && AdminCheck.IsSaneRadius(d.Radius, MAX_DISK_RADIUS)
+                && IsFinite(d.MaxDepth) && Math.Abs(d.MaxDepth) <= MAX_DISK_DEPTH
+                && AdminCheck.IsSaneRadius(d.Width, MAX_DISK_RADIUS * 4f) && AdminCheck.IsSaneRadius(d.Length, MAX_DISK_RADIUS * 4f);
+        }
+
+        // Each disk is a length-prefixed byte array of at least 28 bytes; never pre-size from more than that.
+        private static bool SaneCount(int n, ZPackage pkg)
+        {
+            if (n < 0 || n > MAX_SYNC_DISKS) return false;
+            int left = pkg.Size() - pkg.GetPos();
+            return n <= left / 28;
+        }
+
         public static bool IsServer()
         {
             // During loading, ZNet.instance is null - we must NOT assume we're the server

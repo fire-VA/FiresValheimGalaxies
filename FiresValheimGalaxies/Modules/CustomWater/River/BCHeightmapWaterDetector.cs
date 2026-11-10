@@ -183,9 +183,8 @@ namespace VerdantsAscent.Water.Core
                 _heightmapAmountField = AccessTools.Field(settingsType, "HeightmapAmount");
                 _seaLevelField = AccessTools.Field(settingsType, "SeaLevelAdjustment");
 
-                // ImageMapFloat fields - from decompiled BC source:
-                //   private float[] Map   (on ImageMapFloat)
-                //   public int Size       (on ImageMapBase, inherited)
+                // Reads BC's heightmap image by reflection to sample it: its float[] "Map" field and its int
+                // "Size" field (which may sit on a base class, so the parent type is tried too).
                 var imageMapType = _heightmapField.FieldType;
                 if (imageMapType.IsGenericType && imageMapType.GetGenericTypeDefinition() == typeof(Nullable<>))
                     imageMapType = Nullable.GetUnderlyingType(imageMapType);
@@ -386,15 +385,9 @@ namespace VerdantsAscent.Water.Core
         }
 
         /// <summary>
-        /// Converts a raw heightmap pixel value (0-1) to world Y height using BC's
-        /// EXACT formula from GetBiomeHeightWithHeight ? GetBaseHeight ? ApplyHeightmap.
-        /// 
-        /// From decompiled BC source (v0.7.30):
-        ///   ApplyHeightmap: blendedValue = pixelValue * HeightmapAmount (when blend=1, add=0, mask=0)
-        ///   GetBaseHeightV3: baseHeight = blendedValue - 0.15 + SeaLevelAdjustment
-        ///   GetBiomeHeight:  worldY = baseHeight * 200
-        /// 
-        /// Combined: worldY = (pixelValue * HeightmapAmount - 0.15 + SeaLevelAdjustment) * 200
+        /// Converts a raw heightmap pixel value (0-1) to world Y height in metres, the linear mapping a
+        /// BC heightmap world uses: scale by the heightmap amount, shift by the sea-level offset, then by 200:
+        ///   worldY = (pixelValue * HeightmapAmount - 0.15 + SeaLevelAdjustment) * 200
         /// </summary>
         public static float HeightmapToWorldY(float normalizedHeight, HeightmapSnapshot snap)
         {

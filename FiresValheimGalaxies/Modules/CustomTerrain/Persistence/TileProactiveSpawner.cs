@@ -52,6 +52,7 @@ namespace VerdantsAscent.Terrain.Persistence
         // Reflection handles. Looked up once on first use.
         private static MethodInfo s_miCreateObject;
         private static MethodInfo s_miFindObjects;
+        private static Type s_visitedType; private static bool s_findTakesVector2i;   // 0.1.73
         private static bool s_reflectionAttempted;
 
         private static bool EnsureReflection()
@@ -71,18 +72,26 @@ namespace VerdantsAscent.Terrain.Persistence
                     types: new[] { typeof(ZDO) },
                     modifiers: null);
 
-                // ZDOMan.FindObjects(Vector2i sector, List<ZDO> objects) — public.
-                s_miFindObjects = typeof(ZDOMan).GetMethod(
-                    "FindObjects",
-                    BindingFlags.Public | BindingFlags.Instance,
-                    binder: null,
-                    types: new[] { typeof(Vector2i), typeof(List<ZDO>) },
-                    modifiers: null);
+                // 0.1.73 ([lead] 11-08, Fire's log: "ZDOMan.FindObjects(Vector2i,List<ZDO>) not found — proactive spawn disabled"): the game 1.0's one-sector
+                // read is the private ZDOMan.FindObjects(Vector2s sector, List<ZDO> objects, HashSet<ZoneSystem.SectorIndex> visited) (decompiled from the
+                // live assembly_valheim). Bound by its shape: the 3-parameter form gets a fresh visited set per call (one sector, its portals included);
+                // an older game's 2-parameter form is kept as the fallback.
+                foreach (var m in typeof(ZDOMan).GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (m.Name != "FindObjects") continue;
+                    var ps = m.GetParameters();
+                    if (ps.Length == 3 && ps[0].ParameterType == typeof(Vector2s) && ps[1].ParameterType == typeof(List<ZDO>)
+                        && ps[2].ParameterType.IsGenericType && ps[2].ParameterType.GetGenericTypeDefinition() == typeof(HashSet<>))
+                    { s_miFindObjects = m; s_visitedType = ps[2].ParameterType; break; }
+                    if (ps.Length == 2 && (ps[0].ParameterType == typeof(Vector2s) || ps[0].ParameterType == typeof(Vector2i)) && ps[1].ParameterType == typeof(List<ZDO>))
+                    { s_miFindObjects = m; s_visitedType = null; s_findTakesVector2i = ps[0].ParameterType == typeof(Vector2i); }
+                }
+                if (s_miFindObjects != null) FiresLogger.LogInfo($"[TileProactiveSpawner] bound ZDOMan.FindObjects({string.Join(", ", Array.ConvertAll(s_miFindObjects.GetParameters(), p => p.ParameterType.Name))}): proactive tile spawn on");
 
                 if (s_miCreateObject == null)
                     FiresLogger.LogWarning("[TileProactiveSpawner] ZNetScene.CreateObject(ZDO) not found — proactive spawn disabled, falling back to vanilla queue.");
                 if (s_miFindObjects == null)
-                    FiresLogger.LogWarning("[TileProactiveSpawner] ZDOMan.FindObjects(Vector2i,List<ZDO>) not found — proactive spawn disabled.");
+                    FiresLogger.LogWarning("[TileProactiveSpawner] ZDOMan.FindObjects (one-sector read) not found in this game version — proactive spawn disabled.");
 
                 return s_miCreateObject != null && s_miFindObjects != null;
             }
@@ -102,9 +111,9 @@ namespace VerdantsAscent.Terrain.Persistence
             private static void Postfix(Vector2s zoneID, GameObject root, bool __result)
             {
                 if (!__result || root == null) return;
+                if (!TileAnchorPrefab.IsRegistered) return;   // 0.1.73: before the reflection (no tile anchor = nothing to spawn, e.g. without FAT)
                 if (!EnsureReflection()) return;
                 if (ZDOMan.instance == null || ZNetScene.instance == null) return;
-                if (!TileAnchorPrefab.IsRegistered) return;
 
                 ScanSectorAndEnqueue(zoneID);
             }
@@ -117,7 +126,8 @@ namespace VerdantsAscent.Terrain.Persistence
             var list = new List<ZDO>();
             try
             {
-                s_miFindObjects.Invoke(ZDOMan.instance, new object[] { sector, list });
+                object key = s_findTakesVector2i ? (object)new Vector2i(sector.x, sector.y) : sector;
+                s_miFindObjects.Invoke(ZDOMan.instance, s_visitedType != null ? new object[] { key, list, Activator.CreateInstance(s_visitedType) } : new object[] { key, list });
             }
             catch (Exception ex)
             {

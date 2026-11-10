@@ -53,7 +53,7 @@ namespace VerdantsAscent.Galaxies
 
         private static void Postfix(Ship __instance)
         {
-            if (!GalaxiesConfig.EnableMod.Value || !GalaxiesConfig.EnableShipCurrents.Value)
+            if (!GalaxiesConfig.EnableMod.Value || !GalaxiesConfig.EnableShipCurrents.Value || !GalaxiesConfig.GalaxiesOwnsOcean)
                 return;
 
             if (__instance == null || __instance.m_body == null)

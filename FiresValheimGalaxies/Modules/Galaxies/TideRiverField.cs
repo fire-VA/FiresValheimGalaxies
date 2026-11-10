@@ -211,7 +211,7 @@ namespace VerdantsAscent.Galaxies
                         string s = mode == "scan" ? Scan(p.transform.position) : Describe(p.transform.position);
                         args.Context.AddString(s);
                         FiresLogger.LogInfo(s);
-                    }, isCheat: false);
+                    }, isCheat: true);   // 0.1.34: admin / devcommands only, as the help says
             }
         }
     }

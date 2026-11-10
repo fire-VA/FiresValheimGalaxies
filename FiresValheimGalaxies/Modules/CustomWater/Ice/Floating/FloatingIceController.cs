@@ -356,9 +356,15 @@ namespace VerdantsAscent.Water.Core
             }
         }
 
+        private Floating _floating;
+        private float _nextFloatingLookup;
+
         private void FixedUpdate()
         {
-            var floating = gameObject.GetComponent<Floating>();
+            // 0.1.51 (perf audit): GetComponent every physics tick; cached, and looked up again once a second while there is none
+            // (a Floating can be added after this controller starts).
+            if (_floating == null && Time.time >= _nextFloatingLookup) { _floating = GetComponent<Floating>(); _nextFloatingLookup = Time.time + 1f; }
+            var floating = _floating;
             if (floating != null)
             {
                 IceSurfaceY = transform.position.y;
@@ -393,6 +399,8 @@ namespace VerdantsAscent.Water.Core
             DestroyHoleWalls();
             DestroyEdgeWalls();
             if (_waterGO != null) Destroy(_waterGO);
+            if (_walkCollider != null) { _walkCollider.sharedMesh = null; _walkCollider.enabled = false; }
+            // 0.1.45: the old collider lets go first (Destroy is deferred). 0.1.49: this Destroy sat inside that comment, so every rebuild leaked the shell.
             if (_iceGO != null) Destroy(_iceGO);
             if (_bottomGO != null) Destroy(_bottomGO);
             if (_waterMesh != null) Destroy(_waterMesh);
@@ -567,6 +575,8 @@ namespace VerdantsAscent.Water.Core
             if (_waterMaterial != null) _waterRenderer.material = _waterMaterial;
 
             // Ice shell (top face + side walls, walkable collider)
+            if (_walkCollider != null) { _walkCollider.sharedMesh = null; _walkCollider.enabled = false; }
+            // 0.1.45: the old collider lets go first (Destroy is deferred). 0.1.49: this Destroy sat inside that comment, so every rebuild leaked the shell.
             if (_iceGO != null) Destroy(_iceGO);
             _iceGO = new GameObject("IceShell");
             _iceGO.transform.SetParent(transform);
@@ -918,6 +928,9 @@ namespace VerdantsAscent.Water.Core
                 }
             }
 
+            // 0.1.44 (R-1013J: the 'no vertices' error again, on a restored combiner): Clear() on a mesh the collider still holds
+            // makes Unity re-cook the collider on the EMPTY mesh. Let go of it first; it is handed back below only with vertices.
+            if (_walkCollider != null) _walkCollider.sharedMesh = null;
             _walkColliderMesh.Clear();
             if (verts.Count > 0 && tris.Count > 0)
             {
@@ -929,8 +942,12 @@ namespace VerdantsAscent.Water.Core
 
             if (_walkCollider != null)
             {
+                // 0.1.43 (R-1013E: 'Mesh Collider ... IceColliderMesh ... doesn't have any vertices'): an empty mesh (no ice this
+                // frame) is never handed to the collider; the collider is off until there is ice again.
+                bool any = _walkColliderMesh != null && _walkColliderMesh.vertexCount > 0;
                 _walkCollider.sharedMesh = null;
-                _walkCollider.sharedMesh = _walkColliderMesh;
+                if (any) _walkCollider.sharedMesh = _walkColliderMesh;
+                if (_walkCollider.enabled != any) _walkCollider.enabled = any;
             }
         }
 

@@ -52,16 +52,16 @@ namespace VerdantsAscent.Terrain.Persistence
             // Each handler is admin-gated via RecvWithAdminGate; non-admin
             // peers get logged + rejected. sender==0 (local-server self-call
             // loopback) is auto-trusted by AdminCheck.
-            rpc.Register<ZPackage>(RPC_FLAT, (sender, pkg) => RecvWithAdminGate(sender, "Flat", pkg, Recv_Flat));
-            rpc.Register<ZPackage>(RPC_RAISE, (sender, pkg) => RecvWithAdminGate(sender, "Raise", pkg, Recv_Raise));
-            rpc.Register<ZPackage>(RPC_PAINT, (sender, pkg) => RecvWithAdminGate(sender, "Paint", pkg, Recv_Paint));
-            rpc.Register<ZPackage>(RPC_CLEAR, (sender, pkg) => RecvWithAdminGate(sender, "Clear", pkg, Recv_Clear));
-            rpc.Register<ZPackage>(RPC_BIOME, (sender, pkg) => RecvWithAdminGate(sender, "Biome", pkg, Recv_Biome));
-            rpc.Register<ZPackage>(RPC_HOLE_PUNCH, (sender, pkg) => RecvWithAdminGate(sender, "HolePunch", pkg, Recv_HolePunch));
-            rpc.Register<ZPackage>(RPC_HOLE_PATCH, (sender, pkg) => RecvWithAdminGate(sender, "HolePatch", pkg, Recv_HolePatch));
-            rpc.Register<ZPackage>(RPC_SMOOTH, (sender, pkg) => RecvWithAdminGate(sender, "Smooth", pkg, Recv_Smooth));
-            rpc.Register<ZPackage>(RPC_GRAB, (sender, pkg) => RecvWithAdminGate(sender, "Grab", pkg, Recv_Grab));
-            rpc.Register<ZPackage>(RPC_NOISE, (sender, pkg) => RecvWithAdminGate(sender, "Noise", pkg, Recv_Noise));
+            rpc.Register<ZPackage>(RPC_FLAT, (sender, pkg) => RecvWithAdminGate(sender, RPC_FLAT, "Flat", pkg, Recv_Flat));
+            rpc.Register<ZPackage>(RPC_RAISE, (sender, pkg) => RecvWithAdminGate(sender, RPC_RAISE, "Raise", pkg, Recv_Raise));
+            rpc.Register<ZPackage>(RPC_PAINT, (sender, pkg) => RecvWithAdminGate(sender, RPC_PAINT, "Paint", pkg, Recv_Paint));
+            rpc.Register<ZPackage>(RPC_CLEAR, (sender, pkg) => RecvWithAdminGate(sender, RPC_CLEAR, "Clear", pkg, Recv_Clear));
+            rpc.Register<ZPackage>(RPC_BIOME, (sender, pkg) => RecvWithAdminGate(sender, RPC_BIOME, "Biome", pkg, Recv_Biome));
+            rpc.Register<ZPackage>(RPC_HOLE_PUNCH, (sender, pkg) => RecvWithAdminGate(sender, RPC_HOLE_PUNCH, "HolePunch", pkg, Recv_HolePunch));
+            rpc.Register<ZPackage>(RPC_HOLE_PATCH, (sender, pkg) => RecvWithAdminGate(sender, RPC_HOLE_PATCH, "HolePatch", pkg, Recv_HolePatch));
+            rpc.Register<ZPackage>(RPC_SMOOTH, (sender, pkg) => RecvWithAdminGate(sender, RPC_SMOOTH, "Smooth", pkg, Recv_Smooth));
+            rpc.Register<ZPackage>(RPC_GRAB, (sender, pkg) => RecvWithAdminGate(sender, RPC_GRAB, "Grab", pkg, Recv_Grab));
+            rpc.Register<ZPackage>(RPC_NOISE, (sender, pkg) => RecvWithAdminGate(sender, RPC_NOISE, "Noise", pkg, Recv_Noise));
 
             FiresLogger.LogInfo("[TileBrushRPC] Registered 7 RPC handlers (flat / raise / paint / clear / biome / hole_punch / hole_patch) — admin-gated.");
         }
@@ -76,14 +76,52 @@ namespace VerdantsAscent.Terrain.Persistence
         }
 
         // Shared admin-guard wrapper — single point for the check + reject log.
-        private static void RecvWithAdminGate(long sender, string opName, ZPackage pkg, System.Action<ZPackage> apply)
+        // 0.1.60 security: fail-closed admin gate + radius clamp + server relay.
+        // A remote client's op is applied on the server only after the admin check,
+        // then relayed by the server to every other peer; clients accept ops only
+        // from the server (or their own local loopback).
+        private const float MAX_BRUSH_RADIUS = 256f;
+
+        private static void RecvWithAdminGate(long sender, string rpcName, string opName, ZPackage pkg, System.Action<ZPackage> apply)
         {
+            if (pkg == null) return;
             if (!VerdantsAscent.Terrain.Lifecycle.AdminCheck.IsAdmin(sender))
             {
-                FiresLogger.LogWarning($"[TileBrushRPC] Non-admin peer {sender} attempted {opName} — rejected.");
+                FiresLogger.LogWarning($"[TileBrushRPC] Non-admin / non-server peer {sender} attempted {opName} — rejected.");
                 return;
             }
-            apply(pkg);
+            byte[] raw = pkg.GetArray();
+            try
+            {
+                var peek = new ZPackage(raw);
+                var c = peek.ReadVector3();
+                float r = peek.ReadSingle();
+                if (!VerdantsAscent.Terrain.Lifecycle.AdminCheck.IsSaneVector(c) ||
+                    !VerdantsAscent.Terrain.Lifecycle.AdminCheck.IsSaneRadius(r, MAX_BRUSH_RADIUS))
+                {
+                    FiresLogger.LogWarning($"[TileBrushRPC] {opName} from {sender} has a bad center/radius ({r}) — rejected.");
+                    return;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                FiresLogger.LogWarning($"[TileBrushRPC] {opName} from {sender} is malformed ({ex.Message}) — rejected.");
+                return;
+            }
+            apply(new ZPackage(raw));
+
+            // Server relays a remote admin's op to every other peer (their copy of the
+            // original broadcast is now dropped because it did not come from the server).
+            var znet = ZNet.instance;
+            var rpc = ZRoutedRpc.instance;
+            if (znet != null && rpc != null && znet.IsServer() && !VerdantsAscent.Terrain.Lifecycle.AdminCheck.IsLocalSender(sender))
+            {
+                foreach (var peer in znet.GetPeers())
+                {
+                    if (peer == null || peer.m_uid == 0L || peer.m_uid == sender) continue;
+                    rpc.InvokeRoutedRPC(peer.m_uid, rpcName, new ZPackage(raw));
+                }
+            }
         }
 
         // ── SEND helpers — fall back to local-only when no ZRoutedRpc ────

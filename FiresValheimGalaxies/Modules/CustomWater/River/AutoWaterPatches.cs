@@ -26,7 +26,7 @@ namespace VerdantsAscent.Water.Core
         private const string RPC_REQUEST_BUILD_CACHE = "FiresAdminTerrain_AutoWater_RequestBuildCache";
         private const string RPC_NOTIFY_GENERATION_COMPLETE = "FiresAdminTerrain_AutoWater_GenerationComplete";
         private const string RPC_STREAM_COMBINER = "FiresAdminTerrain_AutoWater_StreamCombiner";
-        private static bool _rpcInitialized = false;
+        private static ZRoutedRpc _rpcInitializedOn;   // 0.1.58 ([lead] RPC audit 10-20): per ZRoutedRpc instance, not a bool (a new one per connection)
 
         /// <summary>
         /// How many combiners have been streamed to clients during the current generation.
@@ -94,12 +94,19 @@ namespace VerdantsAscent.Water.Core
             InitializeRPC();
         }
 
+        // 0.1.58 ([lead] RPC audit): ZNet.Start can run before Game.instance exists (CustomWaterPatches uses ZoneSystem.Start as its fallback for the same reason),
+        // so auto water registers from ZoneSystem.Start too. InitializeRPC is per-instance idempotent.
+        [HarmonyPatch(typeof(ZoneSystem), "Start")]
+        [HarmonyPostfix]
+        [HarmonyPriority(Priority.Low)]
+        private static void ZoneSystem_Start_Postfix_AutoWater() { InitializeRPC(); }
+
         /// <summary>
         /// Registers the RPC handler for auto water generation requests.
         /// </summary>
         public static void InitializeRPC()
         {
-            if (_rpcInitialized) return;
+            if (ZRoutedRpc.instance != null && ZRoutedRpc.instance == _rpcInitializedOn) return;
             if (ZRoutedRpc.instance == null) return;
 
             try
@@ -109,7 +116,7 @@ namespace VerdantsAscent.Water.Core
                 ZRoutedRpc.instance.Register(RPC_REQUEST_BUILD_CACHE, new System.Action<long>(RPC_HandleRequestBuildCache));
                 ZRoutedRpc.instance.Register(RPC_NOTIFY_GENERATION_COMPLETE, new System.Action<long, int, int>(RPC_HandleGenerationComplete));
                 ZRoutedRpc.instance.Register<ZPackage>(RPC_STREAM_COMBINER, RPC_HandleStreamCombiner);
-                _rpcInitialized = true;
+                _rpcInitializedOn = ZRoutedRpc.instance;
                 Debug.Log("[AutoWaterPatches] Auto water generation + clear + build cache + stream + notify RPCs registered");
             }
             catch (System.Exception ex)
@@ -617,6 +624,7 @@ namespace VerdantsAscent.Water.Core
         /// </summary>
         private static void RPC_HandleGenerationComplete(long sender, int combinerCount, int diskCount)
         {
+            if (!VerdantsAscent.Terrain.Lifecycle.AdminCheck.IsFromServer(sender)) { Debug.LogWarning($"[AutoWaterPatches] GenerationComplete from non-server peer {sender} - dropped."); return; }
             // Server doesn't need to handle its own notification - it already has the combiners
             if (ZNet.instance != null && ZNet.instance.IsServer()) return;
 
@@ -638,6 +646,7 @@ namespace VerdantsAscent.Water.Core
         /// </summary>
         private static void RPC_HandleStreamCombiner(long sender, ZPackage pkg)
         {
+            if (!VerdantsAscent.Terrain.Lifecycle.AdminCheck.IsFromServer(sender)) { Debug.LogWarning($"[AutoWaterPatches] StreamCombiner from non-server peer {sender} - dropped."); return; }
             // Server doesn't need to handle its own stream - it already has the combiners
             if (ZNet.instance != null && ZNet.instance.IsServer()) return;
             if (pkg == null) return;
@@ -651,6 +660,7 @@ namespace VerdantsAscent.Water.Core
                 int diskCount = pkg.ReadInt();
 
                 if (diskCount <= 0) return;
+                if (diskCount > 10000 || diskCount > (pkg.Size() - pkg.GetPos()) / 28) { Debug.LogWarning($"[AutoWaterPatches] StreamCombiner disk count {diskCount} out of range - dropped."); return; }
 
                 // Read compact disk data
                 var disks = new List<WaterDisk>(diskCount);
@@ -932,7 +942,7 @@ namespace VerdantsAscent.Water.Core
                 AutoWaterGenerator.CancelGeneration();
             }
             WorldHeightCache.ClearCache();
-            _rpcInitialized = false;
+            _rpcInitializedOn = null;
             _pendingZoneLoadCleanup = false;
             _streamedCombinerCount = 0;
             _streamedDiskCount = 0;

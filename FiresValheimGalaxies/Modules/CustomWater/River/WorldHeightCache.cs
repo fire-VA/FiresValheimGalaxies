@@ -397,7 +397,7 @@ namespace VerdantsAscent.Water.Core
 
             string cacheDir = Path.Combine(BepInEx.Paths.ConfigPath, "FiresValheimGalaxies", "Cache");
             Directory.CreateDirectory(cacheDir);
-            return Path.Combine(cacheDir, $"{worldName}_heightcache_{gridSize}.bin");
+            return VerdantsAscent.Terrain.Lifecycle.AdminCheck.SafeCacheFile(cacheDir, worldName, $"_heightcache_{gridSize}.bin");
         }
 
         /// <summary>

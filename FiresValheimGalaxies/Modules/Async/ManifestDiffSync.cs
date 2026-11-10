@@ -77,7 +77,27 @@ namespace VerdantsAscent.Async
         // key: (peerUid, namespace)  -> manifest dict (relativePath -> sha256 hex, lowercase)
         private static readonly Dictionary<ManifestKey, Dictionary<string, string>> _peerManifests =
             new Dictionary<ManifestKey, Dictionary<string, string>>();
-        private static bool _rpcsRegistered;
+        // [lead] RPC audit 10-20: Valheim makes a NEW ZRoutedRpc per connection, so a static bool lost the handlers after a relog; guard by instance.
+        private static ZRoutedRpc _rpcsRegisteredOn;
+        // [wishbone] 0.1.61 security Low (audit 10-23): replies are accepted only for a request THIS process sent (key + time), from the peer it was sent to (on a client: the server). Entries expire after 60 s.
+        private const double PendingTimeoutSeconds = 60.0;
+        private static readonly Dictionary<ManifestKey, DateTime> _pendingRequests = new Dictionary<ManifestKey, DateTime>();
+        private static readonly HashSet<string> _refusalKindsLogged = new HashSet<string>(StringComparer.Ordinal);
+
+        private static void WarnOncePerKind(string kind, string message)
+        {
+            lock (_lock) { if (!_refusalKindsLogged.Add(kind)) return; }
+            Debug.LogWarning($"[ManifestDiffSync] Refused manifest reply ({kind}): {message}");
+        }
+
+        private static void ExpirePendingLocked(DateTime nowUtc)
+        {
+            if (_pendingRequests.Count == 0) return;
+            var expired = new List<ManifestKey>();
+            foreach (var kv in _pendingRequests)
+                if ((nowUtc - kv.Value).TotalSeconds > PendingTimeoutSeconds) expired.Add(kv.Key);
+            for (int i = 0; i < expired.Count; i++) _pendingRequests.Remove(expired[i]);
+        }
 
         private readonly struct ManifestKey : IEquatable<ManifestKey>
         {
@@ -111,12 +131,12 @@ namespace VerdantsAscent.Async
         /// </summary>
         public static void EnsureRegistered()
         {
-            if (_rpcsRegistered) return;
+            if (ZRoutedRpc.instance != null && ZRoutedRpc.instance == _rpcsRegisteredOn) return;
             if (ZRoutedRpc.instance == null) return;
 
             TryRegisterRpc(RpcRequest, RPC_OnRequest);
             TryRegisterRpc(RpcReply, RPC_OnReply);
-            _rpcsRegistered = true;
+            _rpcsRegisteredOn = ZRoutedRpc.instance;
         }
 
         private static void TryRegisterRpc(string rpcName, Action<long, ZPackage> handler)
@@ -286,7 +306,14 @@ namespace VerdantsAscent.Async
         {
             if (string.IsNullOrEmpty(namespaceKey)) return;
             EnsureRegistered();
-            lock (_lock) _peerManifests.Remove(new ManifestKey(peerUid, namespaceKey));
+            lock (_lock)
+            {
+                var reqKey = new ManifestKey(peerUid, namespaceKey);
+                _peerManifests.Remove(reqKey);
+                var nowUtc = DateTime.UtcNow;
+                ExpirePendingLocked(nowUtc);
+                _pendingRequests[reqKey] = nowUtc;
+            }
 
             var pkg = new ZPackage();
             pkg.Write(namespaceKey);
@@ -510,10 +537,33 @@ namespace VerdantsAscent.Async
                 string namespaceKey = pkg.ReadString();
                 if (string.IsNullOrEmpty(namespaceKey)) return;
 
+                // Clients accept replies only from the server.
+                if (ZNet.instance != null && !ZNet.instance.IsServer() && ZRoutedRpc.instance != null &&
+                    sender != ZRoutedRpc.instance.GetServerPeerID())
+                {
+                    WarnOncePerKind("not-server", $"reply for '{namespaceKey}' came from {sender}, not the server - dropped.");
+                    return;
+                }
+
+                // Only a reply to an outstanding request from this process, to that same peer, is accepted.
+                var replyKey = new ManifestKey(sender, namespaceKey);
+                bool outstanding;
+                lock (_lock)
+                {
+                    ExpirePendingLocked(DateTime.UtcNow);
+                    outstanding = _pendingRequests.ContainsKey(replyKey);
+                }
+                if (!outstanding)
+                {
+                    WarnOncePerKind("unsolicited", $"no outstanding request for '{namespaceKey}' to {sender} (never sent, already answered or expired after 60 s) - dropped.");
+                    return;
+                }
+
                 int count = pkg.ReadInt();
                 if (count < 0) count = 0;
+                if (count > 100000 || count > (pkg.Size() - pkg.GetPos()) / 2) { Debug.LogWarning($"[ManifestDiffSync] Reply count {count} from {sender} out of range - dropped."); return; }
 
-                var dict = new Dictionary<string, string>(count, StringComparer.OrdinalIgnoreCase);
+                var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < count; i++)
                 {
                     string rel = pkg.ReadString();
@@ -524,7 +574,9 @@ namespace VerdantsAscent.Async
 
                 lock (_lock)
                 {
-                    _peerManifests[new ManifestKey(sender, namespaceKey)] = dict;
+                    // Re-check under the lock: the key must still be outstanding; clear it on accept.
+                    if (!_pendingRequests.Remove(replyKey)) return;
+                    _peerManifests[replyKey] = dict;
                 }
             }
             catch (Exception ex)

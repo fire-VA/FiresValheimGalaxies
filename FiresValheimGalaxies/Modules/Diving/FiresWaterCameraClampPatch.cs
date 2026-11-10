@@ -5,7 +5,7 @@ namespace VerdantsAscent.Diving
 {
     /// <summary>
     /// Stops vanilla's camera-above-water clamp from fighting the player while
-    /// riding a boat through rough swells (and, later, while diving).
+    /// riding a boat through rough swells, and while swimming underwater.
     ///
     /// Vanilla <c>GameCamera.UpdateCamera</c> forces the camera to stay
     /// <c>m_minWaterDistance</c> (0.3m) above the liquid surface
@@ -17,10 +17,11 @@ namespace VerdantsAscent.Diving
     /// flips to its min via m_waterClipping and slices the water at the forced
     /// waterline) that the player reported.
     ///
-    /// Fix (same lever the Under-The-Sea diving mod uses): while STANDING ON A
-    /// SHIP or SWIMMING, set m_minWaterDistance to a large negative — cached and
-    /// restored — so the clamp can never engage and the camera rides the boat
-    /// smoothly through troughs. FiresWater is two-sided (its underwater pass)
+    /// Fix: while STANDING ON A SHIP, or swimming with the head under the
+    /// surface (Core's PlayerSwim, 0.1.30), set m_minWaterDistance to a large
+    /// negative — cached and restored — so the clamp can never engage and the
+    /// camera rides the boat smoothly through troughs, or follows the swimmer
+    /// down. FiresWater is two-sided (its underwater pass)
     /// and FiresUnderwaterEnv drives the underwater fog by the player's eye
     /// depth, so a brief dip reads as a clean underwater glimpse, not a bug.
     ///
@@ -45,13 +46,14 @@ namespace VerdantsAscent.Diving
             if (__instance == null) return;
 
             var player = Player.m_localPlayer;
-            // Release the clamp (let the camera follow under) only when actually
-            // DIVING or riding a ship — NOT for plain surface treading. Treading
-            // keeps vanilla's above-water camera so the view can't flicker
-            // between under/over water as waves wash over a surface swimmer.
+            // Release the clamp (let the camera follow under) only when the head
+            // is actually under (Core's PlayerSwim says so) or riding a ship — NOT
+            // for plain surface treading. Treading keeps vanilla's above-water
+            // camera so the view can't flicker between under/over water as waves
+            // wash over a surface swimmer.
             bool allow = Enabled
                       && player != null
-                      && (Diver.LocalIsSubmerged() || player.GetStandingOnShip() != null);
+                      && ((FiresDiving.CoreHeadUnderwater && !FiresDiving.CoreCameraOwned) || player.GetStandingOnShip() != null);   // 0.1.69: head-under is Core's when it owns it
 
             if (allow)
             {

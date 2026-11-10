@@ -39,7 +39,8 @@ namespace VerdantsAscent
     {
         public const string PluginGUID = "com.Fire.FiresValheimGalaxies";
         public const string PluginName = "FiresValheimGalaxies";
-        public const string PluginVersion = "0.1.25";
+        public const string PluginVersion = "0.1.75";   // 0.1.71 ([saddles] 11-07, Fire: camera / fog / swim disagree with the drawn water, 1602,424 + 1629,415): GalaxiesApi.WaterSurfaceOffsetAt(x, z) (add-only; the WaterVolumeTidePatch formula, one function for swim, clutter and the FTS camera); [WaterProbe] Debug every 2 s near water: physics level, shaped, flat full-tide, FTS TrueWaterY + its underwater decision, tide pieces, ground. Over live 0.1.70. 0.1.70 ([saddles] 11-07, Fire: "lillypad and water height dont agree", pond 1566,423): floating clutter (m_snapToWater) is built against the shaped water surface per grass patch (tide x TideInfluence x ice hold + RiverRaise, the WaterVolumeTidePatch formula) instead of the full tide everywhere; inland pads no longer sit ~1 m under at low tide. 0.1.69 ([seasons] 10-30): 0.1.69 ([seasons] 10-30): the swim camera stands down when Core PlayerSwim.CameraOwned (APM); ship clamp kept. 0.1.68 ([seasons] 10-30, lead: one home): creature diving removed from Galaxies (FiresMonsterOverhaul only). 0.1.67 ([seasons] 10-30): the 3 [Galaxies - Diving] keys moved to FiresMonsterOverhaul (no longer bound). 0.1.66 ([seasons] 10-30): creature diving stands down when FiresMonsterOverhaul 0.0.47+ owns it.
+        public const string SyncMinimumVersion = "0.1.41";
 
         public static readonly Harmony harmony = new Harmony(PluginGUID);
         public static FiresValheimGalaxies Instance { get; private set; }
@@ -58,6 +59,7 @@ namespace VerdantsAscent
         private void Awake()
         {
             Log = Logger;
+            UnityEngine.Application.quitting += () => s_quitting = true;   // 0.1.75: see OnDestroy
             // BIG ringed-planet banner — fires FIRST so it sits at
             // the top of the Galaxies console output as the load
             // announcement. The compact planet banner fires once the
@@ -100,7 +102,9 @@ namespace VerdantsAscent
             {
                 DisplayName = PluginName,
                 CurrentVersion = PluginVersion,
-                MinimumRequiredVersion = PluginVersion
+                // Fixed (lead 10-13): raise only when a synced key's name, type or meaning changes. 0.1.41 moved the synced
+                // General/Terrain/Water/FiresWater keys under 'Galaxies - ', so an older client cannot match them.
+                MinimumRequiredVersion = SyncMinimumVersion
             };
             configSync.lockedConfigChanged += ConfigManager.Instance.OnConfigLockChanged;
             configSync.AddLockingConfigEntry(ConfigManager.Instance.configServerAuthority);
@@ -116,6 +120,9 @@ namespace VerdantsAscent
             // locked on the physics/visual entries) and hosts the per-frame tide
             // tick. Reads FiresMoon (source-linked) for phase/orbit.
             VerdantsAscent.Galaxies.GalaxiesConfig.Bind(Config, configSync);
+            VerdantsAscent.Galaxies.GalaxiesConfig.MigrateMovedKeys(Config);   // 0.1.41: after every Bind (ConfigManager's and these)
+            // 0.1.56 (Fire 10-20 player-facing config rule): everything but keybinds and feature master switches is Advanced (Core API).
+            FiresCore.Config.FiresConfigVisibility.MarkAdvanced(Config, d => !VerdantsAscent.Galaxies.GalaxiesConfig.IsBasicKey(Config, d));
             RootObject.AddComponent<VerdantsAscent.Galaxies.GalaxiesModule>();
             // 3D moon — Galaxies-owned, loads from the firesgalaxies bundle, drives
             // the tides + renders physical phases. Self-gates on MoonEnabled.
@@ -127,6 +134,8 @@ namespace VerdantsAscent
             RootObject.AddComponent<VerdantsAscent.Galaxies.GalaxiesDebugVisualizer>();
 
             LoadAssets();
+            // HD_Additions' copy of this bundle would be refused (two ERROR lines a load): skip its moon load while we hold ours.
+            VerdantsAscent.Galaxies.HdMoonYield.Install(harmony, () => assetBundle != null);
 
             FiresCore.Materials.TerrainMaterialCache.MaterialCaptured += OnTerrainMaterialCaptured;
 
@@ -239,7 +248,7 @@ namespace VerdantsAscent
                         }
                     }
 
-                    Debug.Log($"[{PluginName}] Selective patch (FAT present={fatPresent}, dedicated={isDedicatedServer}): patched {patched} types, skipped {skipped}");
+                    if (FiresCore.Logging.FiresLogLevel.DebugOn) Debug.Log($"[{PluginName}] Selective patch (FAT present={fatPresent}, dedicated={isDedicatedServer}): patched {patched} types, skipped {skipped}");
                 }
             }
             catch (Exception ex)
@@ -396,6 +405,7 @@ namespace VerdantsAscent
             }
         }
 
+        private static bool s_quitting;   // 0.1.75
         private void OnDestroy()
         {
             FiresCore.Materials.TerrainMaterialCache.MaterialCaptured -= OnTerrainMaterialCaptured;
@@ -413,7 +423,10 @@ namespace VerdantsAscent
                 RootObject = null;
             }
 
-            try { harmony?.UnpatchSelf(); } catch { }
+            // 0.1.75 ([ghost] / [lead] 11-08, Core 1211's quit timeline: "com.Fire.FiresValheimGalaxies unpatched itself in 466.6 ms"): unpatching at
+            // application quit makes Harmony rebuild every shared method, re-running every other mod's transpilers while the game exits; at quit there is
+            // nothing left to unpatch (a plugin reload still unpatches)
+            if (!s_quitting) { try { harmony?.UnpatchSelf(); } catch { } }
 
             try { VerdantsAscent.Galaxies.GalaxiesModule.Shutdown(); } catch { }
 
@@ -431,16 +444,19 @@ namespace VerdantsAscent
             TileMeshRenderer.UpgradeAllRenderersToCachedMaterial();
         }
 
+        private const string BundleName = "firesgalaxies";
+
         private void LoadAssets()
         {
             if (assetBundle != null) return;
 
             try
             {
-                assetBundle = GetAssetBundleFromResources("firesgalaxies");
+                ReleaseForeignCopies();
+                assetBundle = GetAssetBundleFromResources(BundleName);
                 if (assetBundle == null)
                 {
-                    Debug.LogWarning($"[{PluginName}] Embedded asset bundle 'firesgalaxies' not found — the moon will not render.");
+                    Debug.LogWarning($"[{PluginName}] Embedded asset bundle '{BundleName}' not found — the moon will not render.");
                     return;
                 }
                 Debug.Log($"[{PluginName}] Loaded asset bundle: {assetBundle.name}");
@@ -448,6 +464,21 @@ namespace VerdantsAscent
             catch (Exception ex)
             {
                 Debug.LogError($"[{PluginName}] Asset load failed: {ex}");
+            }
+        }
+
+        // HD_Additions embeds a copy of this bundle and loads it at its own start, and Unity refuses a second bundle with
+        // the same files, so whichever loaded second lost its moon. Galaxies owns the moon and tides (Fire, 2026-09-27):
+        // another mod's copy is released with Unload(false), which keeps whatever that mod already took out of it alive.
+        private static void ReleaseForeignCopies()
+        {
+            var copies = new List<AssetBundle>();
+            foreach (var loaded in AssetBundle.GetAllLoadedAssetBundles())
+                if (loaded != null && loaded.name == BundleName) copies.Add(loaded);
+            foreach (var copy in copies)
+            {
+                Debug.LogWarning($"[{PluginName}] another mod already loaded a copy of '{BundleName}' (HD_Additions ships one); released it so Galaxies loads its own.");
+                copy.Unload(false);
             }
         }
 

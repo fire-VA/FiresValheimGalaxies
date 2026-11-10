@@ -25,6 +25,8 @@ namespace VerdantsAscent.Galaxies
             bool tideShape = GalaxiesConfig.TideShapingEnabled != null && GalaxiesConfig.TideShapingEnabled.Value;
             bool rivers    = GalaxiesConfig.ExtendedRiversEnabled != null && GalaxiesConfig.ExtendedRiversEnabled.Value;
 
+            if (offset != 0f) offset *= IceTideHold.TideScale(point.x, point.z);   // 0.1.65: held under ice (Fire 10-29)
+
             if (!tideShape && !rivers)
             {
                 if (offset != 0f) __result += offset;   // original uniform tide

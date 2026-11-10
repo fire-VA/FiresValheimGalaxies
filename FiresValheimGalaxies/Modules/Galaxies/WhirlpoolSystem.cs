@@ -161,7 +161,7 @@ namespace VerdantsAscent.Galaxies
             if (n != s_lastPushedCount)
             {
                 s_lastPushedCount = n;
-                FiresLogger.LogInfo($"Whirlpool shader globals -> {n} zone(s)"
+                FiresLogger.LogDebug($"Whirlpool shader globals -> {n} zone(s)"
                     + (n > 0 ? $", [0] centre=({s_posRad[0].x:F0},{s_posRad[0].z:F0}) r={s_posRad[0].w:F0}m depth={s_shape[0].x:F1}m" : ""));
             }
         }
@@ -177,7 +177,7 @@ namespace VerdantsAscent.Galaxies
         {
             private static void Postfix(Vector3 point, ref float __result)
             {
-                if (Zones.Count == 0) return;
+                if (Zones.Count == 0 || !GalaxiesConfig.GalaxiesOwnsOcean) return;   // 0.1.38: stands down when Vedr owns the ocean
                 __result += FunnelOffset(point);
             }
         }
@@ -194,7 +194,7 @@ namespace VerdantsAscent.Galaxies
 
             private static void Postfix(Ship __instance, float fixedDeltaTime)
             {
-                if (Zones.Count == 0 || !GalaxiesConfig.WhirlpoolsEnabled.Value) return;
+                if (Zones.Count == 0 || !GalaxiesConfig.WhirlpoolsEnabled.Value || !GalaxiesConfig.GalaxiesOwnsOcean) return;
                 if (__instance.m_body == null) return;
                 if (__instance.m_nview != null && __instance.m_nview.IsValid() && !__instance.m_nview.IsOwner()) return;
 
@@ -289,7 +289,7 @@ namespace VerdantsAscent.Galaxies
                                 }
                                 break;
                         }
-                    }, isCheat: false);
+                    }, isCheat: true);   // 0.1.34: admin / devcommands only, as the help says
             }
         }
     }

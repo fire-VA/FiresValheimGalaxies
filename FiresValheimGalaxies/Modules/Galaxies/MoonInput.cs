@@ -33,11 +33,41 @@ namespace VerdantsAscent.Galaxies
             return Mathf.Repeat(FiresCore.Services.MoonPhase.Compute01(), 1f) * TwoPi;
         }
 
-        // No blood-moon event exists in the stack yet. Single seam: when one is
-        // added, return its active state here and the blood-moon tide range engages.
+        // 0.1.59 (Fire 10-20: Galaxies adds its own blood moon; this was the seam). The night of a full moon - phase within
+        // 0.75 day of full on the same clock as FiresCore.Services.MoonPhase (so tides, the visible moon and Vedr's lunar month agree) -
+        // is a blood moon for about 1 in BloodMoonOneIn cycles. Which cycles is a hash of the moon-cycle number and the world seed:
+        // deterministic, identical on server and every client (the two keys are server-synced), no RPC or saved state needed.
         public static bool IsBloodMoon()
         {
-            return false;
+            try
+            {
+                if (GalaxiesConfig.BloodMoonEnabled == null || !GalaxiesConfig.BloodMoonEnabled.Value) return false;
+                if (FiresCore.Services.MoonPhase.Override >= 0f || EnvMan.instance == null || ZNet.instance == null) return false;
+                int day = EnvMan.instance.GetDay(ZNet.instance.GetTimeSeconds());
+                float synodic = Mathf.Max(0.1f, FiresCore.Services.MoonPhase.SynodicDays);
+                double total = (day + EnvMan.instance.GetDayFraction() + FiresCore.Services.MoonPhase.PhaseOffsetDays) / synodic;
+                long cycle = (long)System.Math.Floor(total);
+                double fromFull = System.Math.Abs((total - cycle) - 0.5) * synodic;   // days from this cycle's full moon
+                if (fromFull > 0.75) return false;
+                return BloodCycle(cycle, WorldSeed(), Mathf.Max(2, GalaxiesConfig.BloodMoonOneIn != null ? GalaxiesConfig.BloodMoonOneIn.Value : 10));
+            }
+            catch { return false; }
+        }
+
+        internal static bool BloodCycle(long cycle, int seed, int oneIn)
+        {
+            unchecked
+            {
+                ulong h = 1469598103934665603UL;   // FNV-1a over (seed, cycle): stable on every machine
+                foreach (long v in new long[] { seed, cycle }) for (int i = 0; i < 8; i++) { h ^= (byte)(v >> (i * 8)); h *= 1099511628211UL; }
+                return h % (ulong)oneIn == 0UL;
+            }
+        }
+
+        private static int WorldSeed()
+        {
+            try { if (WorldGenerator.instance != null) return WorldGenerator.instance.GetSeed(); } catch { }
+            return 0;
         }
 
         public static float GetPhase01()

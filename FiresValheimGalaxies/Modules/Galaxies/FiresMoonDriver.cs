@@ -120,6 +120,7 @@ namespace VerdantsAscent.Water.Core
         // Blood moon — recolor the moon to deep red (lunar-eclipse look) while
         // keeping crater detail. 0 = normal, 1 = full blood. Set via va_moon_blood.
         public static float BloodMoon  = 0f;
+        private static bool s_bloodLogged;
         public static Color BloodColor = new Color(1.7f, 0.4f, 0.2f, 1f);
         // Manual phase override for previewing. <0 = auto (game-day driven).
         // 0..1 forces a synodic phase, driving BOTH the moon's position and its
@@ -204,7 +205,7 @@ namespace VerdantsAscent.Water.Core
             // Cross-mod master kill: FiresTossinShade's "00 Master" pushes _FiresMasterFxOff=1
             // when the user wants pure vanilla graphics. Stand down exactly like Enabled=false —
             // vanilla moon restored, our disc hidden. Unset/0 (FTS absent or master on) = run.
-            if (!Enabled || Shader.GetGlobalFloat(s_propMasterFxOff) > 0.5f)
+            if (!Enabled || Shader.GetGlobalFloat(s_propMasterFxOff) > 0.5f || VerdantsAscent.Galaxies.RingWorld.Active)   // 0.1.62: the halo ring sky is FTS + FAT's
             {
                 ApplyVanillaMoonSuppression(false);
                 if (MoonInstance != null) MoonInstance.SetActive(false);
@@ -216,6 +217,13 @@ namespace VerdantsAscent.Water.Core
 
             // We own "the moon" — keep Valheim's flat vanilla moon hidden either way.
             ApplyVanillaMoonSuppression(true);
+            // 0.1.59: the blood moon (MoonInput.IsBloodMoon, the same answer TideSystem uses) fades the moon red over ~5 s and back
+            bool blood = VerdantsAscent.Galaxies.MoonInput.IsBloodMoon();
+            BloodMoon = Mathf.MoveTowards(BloodMoon, blood ? 1f : 0f, Time.deltaTime * 0.2f);
+            if (blood != s_bloodLogged) { s_bloodLogged = blood; Debug.Log($"[Galaxies] blood moon {(blood ? "RISES" : "ends")} (day {(EnvMan.instance != null && ZNet.instance != null ? EnvMan.instance.GetDay(ZNet.instance.GetTimeSeconds()) : -1)})"); }
+            // Live brightness / blood-moon params, before the SuppressDisc return: the orbital moon shares this
+            // material, so it has to stay current even while the disc itself is hidden.
+            UpdateMaterialParams();
 
             // The reachable orbital moon (FiresOrbitals → FiresMoon prefab) is the visible moon,
             // so hide this skybox 3D disc to avoid two moons. Vanilla moon stays suppressed above,
@@ -227,7 +235,6 @@ namespace VerdantsAscent.Water.Core
             }
 
             EnsureInstance(cam);
-            UpdateMaterialParams();
             UpdateMoonTransform(cam);
         }
 
@@ -377,37 +384,7 @@ namespace VerdantsAscent.Water.Core
                 // POINTER on the instance only; the bundle's material asset
                 // is untouched, so a placed-via-Hammer VAFIREMOON piece
                 // still uses the original material.
-                if (MoonMaterial == null)
-                {
-                    MoonMaterial = new Material(MoonShader) { name = MaterialName };
-                    MoonMaterial.SetTexture(Prop_MainTex, MoonTexture);
-                }
-
-                // Gather renderers, apply our runtime material, also push
-                // _MainTex via PropertyBlock as belt-and-suspenders in case
-                // anything else mutates sharedMaterial later.
-                var renderers = MoonInstance.GetComponentsInChildren<Renderer>(includeInactive: true);
-                int rendererCount = renderers.Length;
-                Bounds combined = new Bounds(MoonInstance.transform.position, Vector3.zero);
-                var block = new MaterialPropertyBlock();
-                for (int i = 0; i < renderers.Length; i++)
-                {
-                    renderers[i].sharedMaterial   = MoonMaterial;
-                    renderers[i].shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    renderers[i].receiveShadows   = false;
-                    renderers[i].rendererPriority = 1;
-                    if (i == 0) combined = renderers[i].bounds;
-                    else        combined.Encapsulate(renderers[i].bounds);
-
-                    renderers[i].GetPropertyBlock(block);
-                    if (MoonTexture != null)
-                    {
-                        block.SetTexture("_MainTex", MoonTexture);
-                        block.SetTexture("_BaseMap", MoonTexture);
-                        block.SetTexture("_BaseColorMap", MoonTexture);
-                    }
-                    renderers[i].SetPropertyBlock(block);
-                }
+                int rendererCount = ApplyMoonLook(MoonInstance, out Bounds combined);
 
                 // Cache native mesh radius (half of largest bounds dimension)
                 // so UpdateMoonTransform can normalize the scale calculation
@@ -433,6 +410,49 @@ namespace VerdantsAscent.Water.Core
                 }
             }
             MoonInstance.SetActive(true);
+        }
+
+        /// <summary>
+        /// Gives every renderer under <paramref name="root"/> the HD moon look: the runtime Custom/FiresMoon material with
+        /// the bundled albedo (also pushed through a property block), no shadows, and LODs that never cull. Used by the
+        /// sky disc AND by the reachable orbital moon (FiresOrbitals): the prefab's own material is a clone of a floor
+        /// material whose texture reference doesn't survive bundling and whose shader resolves to Unity's 'Standard'
+        /// (2026-10-05: the orbital moon logged firstShader='Standard' and showed no moon at night). Returns the
+        /// renderer count; <paramref name="combined"/> is their world bounds.
+        /// </summary>
+        public static int ApplyMoonLook(GameObject root, out Bounds combined)
+        {
+            combined = new Bounds(root != null ? root.transform.position : Vector3.zero, Vector3.zero);
+            if (root == null || MoonShader == null) return 0;
+            if (MoonMaterial == null)
+            {
+                MoonMaterial = new Material(MoonShader) { name = MaterialName };
+                MoonMaterial.SetTexture(Prop_MainTex, MoonTexture);
+                UpdateMaterialParams();
+            }
+
+            var renderers = root.GetComponentsInChildren<Renderer>(includeInactive: true);
+            var block = new MaterialPropertyBlock();
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].sharedMaterial    = MoonMaterial;
+                renderers[i].shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderers[i].receiveShadows    = false;
+                renderers[i].rendererPriority  = 1;
+                if (i == 0) combined = renderers[i].bounds;
+                else        combined.Encapsulate(renderers[i].bounds);
+
+                renderers[i].GetPropertyBlock(block);
+                if (MoonTexture != null)
+                {
+                    block.SetTexture("_MainTex", MoonTexture);
+                    block.SetTexture("_BaseMap", MoonTexture);
+                    block.SetTexture("_BaseColorMap", MoonTexture);
+                }
+                renderers[i].SetPropertyBlock(block);
+            }
+            ExtendLODForeverAway(root);
+            return renderers.Length;
         }
 
         private static void UpdateMaterialParams()

@@ -51,6 +51,7 @@ namespace VerdantsAscent.Water.Core
 
         private static bool BuildAndRegister()
         {
+            if (!VerdantsAscent.AnchorSourceGate.Available(PrefabName)) return false;   // 0.1.72: FAT's source piece absent = these FAT anchors stand down (one Info line), never an error
             var source = LoadSourcePrefab();
             if (source == null) return false;
 
