@@ -22,27 +22,26 @@ namespace VerdantsAscent.Galaxies
         // Galaxies. Cleared on destroy so consumers fall back to vanilla water.
         private void Awake()
         {
-            FiresCore.Services.WaterState.Register(new GalaxiesWaterState());
+            ApmWaterBridge.Register(new GalaxiesWaterState());   // 0.1.76: APM owns WaterState (Fire 11-16), bound by name
             // Surface-shaping field the FiresWater shore-field baker samples so the rendered
             // mesh bends to match the buoyancy weld. This MUST apply the EXACT same feature
             // gates as WaterVolumeTidePatch — otherwise the visual bends by the field while
             // buoyancy uses the uniform tide (or vice versa), and the two surfaces split into
             // the "pinned level + moving level" double-layer. With both shaping features off,
             // this returns (1,0) everywhere → the shader's tide == the uniform buoyancy tide.
-            FiresCore.Services.WaterState.SurfaceFieldSampler = (x, z) =>
+            ApmWaterBridge.SetSampler((x, z) =>
             {
                 bool shape = GalaxiesConfig.TideShapingEnabled != null && GalaxiesConfig.TideShapingEnabled.Value;
                 bool riv   = GalaxiesConfig.ExtendedRiversEnabled != null && GalaxiesConfig.ExtendedRiversEnabled.Value;
                 float influence = shape ? TideRiverField.TideInfluence(x, z) : 1f;
                 float raise     = riv   ? TideRiverField.RiverRaise(x, z)     : 0f;
                 return new UnityEngine.Vector2(influence, raise);
-            };
+            });
         }
 
         private void OnDestroy()
         {
-            FiresCore.Services.WaterState.Clear();
-            FiresCore.Services.WaterState.SurfaceFieldSampler = null;
+            ApmWaterBridge.Clear();   // 0.1.76: provider + sampler cleared in APM (no-op without APM)
         }
 
         // Called from the plugin once Harmony patches are applied.

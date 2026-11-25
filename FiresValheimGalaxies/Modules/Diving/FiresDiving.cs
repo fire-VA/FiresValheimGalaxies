@@ -20,12 +20,12 @@ namespace VerdantsAscent.Diving
                 if (!s_coreLookedUp)
                 {
                     s_coreLookedUp = true;
-                    var swim = System.Type.GetType("FiresCore.Movement.PlayerSwim, FiresUnifiedCore");
+                    var swim = System.Type.GetType("FiresCore.Movement.PlayerSwim, FiresUnifiedCore") ?? System.Type.GetType("FiresAPM.Swimming.PlayerSwim, FiresAdvancedPlayerMovement");   // 0.1.76: Core first (an old Core that still has PlayerSwim owns swimming; APM stands down then), else APM (Core 1243+)
                     s_coreHeadUnderwater = swim?.GetProperty("HeadUnderwater",
                         System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                     FiresLogger.LogDebug(s_coreHeadUnderwater != null
                         ? "[Diving] player swimming is Core's PlayerSwim; the camera follows the head under the surface when Core says so."
-                        : "[Diving] this Core has no PlayerSwim (older than 0.2.298): vanilla swimming, and the camera stays above the water.");
+                        : "[Diving] no PlayerSwim (Advanced Player Movement not installed): vanilla swimming, and the camera stays above the water.");
                 }
                 if (s_coreHeadUnderwater == null) return false;
                 try { return (bool)s_coreHeadUnderwater.GetValue(null, null); }
@@ -46,7 +46,7 @@ namespace VerdantsAscent.Diving
                 if (!s_ownedLookedUp)
                 {
                     s_ownedLookedUp = true;
-                    var swim = System.Type.GetType("FiresCore.Movement.PlayerSwim, FiresUnifiedCore");
+                    var swim = System.Type.GetType("FiresCore.Movement.PlayerSwim, FiresUnifiedCore") ?? System.Type.GetType("FiresAPM.Swimming.PlayerSwim, FiresAdvancedPlayerMovement");   // 0.1.76: Core first (old Core owns swimming), else APM
                     var fl = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static;
                     s_cameraOwned = swim?.GetProperty("CameraOwned", fl);
                     if (s_cameraOwned == null) s_cameraOwnedField = swim?.GetField("CameraOwned", fl);

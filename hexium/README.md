@@ -1,68 +1,73 @@
 # Fires Valheim Galaxies
 
-A real moon for Valheim, and the sea that follows it.
+**Retired: this is the last build (0.1.77). It works with Fires Unified Core 0.2.1250 or newer; Galaxies 0.1.75 and older do not start on that Core. Galaxies is no longer developed: its tides, moon phases and currents now come from Vedr.**
 
-Valheim's moon is a picture painted on the sky. Galaxies replaces it with a 3D moon that has phases, orbits the
-world, and pulls the ocean with it: tides, currents and storm whirlpools, the same for every player on a server.
+A real moon for Valheim, and the sea that follows it. Galaxies swaps the painted moon for a 3D one with phases that
+orbits the world and pulls the ocean with it: tides, currents and storm whirlpools, the same for every player on a server.
 
-## What it does
+## What's new in 0.1.77
+
+- **Last build, retired.** Galaxies is no longer developed. Its tides, moon phases and currents now come from Vedr.
+  This build exists so Galaxies keeps loading next to Fires Unified Core 0.2.1250 or newer.
+- **Works with Fires Unified Core 0.2.1250+.** Core's water code moved to Fires Advanced Player Movement; Galaxies now
+  hands its tide and current answers to Advanced Player Movement when it is installed, and still loads without it.
+- **Tides hold still on ice-locked water.** With Fires Admin Terrain 0.2.1447 or newer, open water enclosed by ice keeps
+  still like water under the ice.
+
+## What you get
 
 **The moon**
 - A 3D moon crosses the night sky, high at midnight and gone at noon, opposite the sun.
-- It goes through real phases, new to full and back, over a lunar month you can set (30 game days by default).
-- A blood-moon look can be switched on for events.
+- Real phases, new to full and back, over a lunar month (30 game days by default).
+- Blood moons: about one full moon in ten turns red and the tides swing harder.
 
 **Orbitals**
-- Up to four bodies (A to D) on tilted orbits around the world: the moon itself, or any ship, piece or blueprint by
-  prefab name.
+- Up to four bodies on tilted orbits around the world: the moon itself, or any ship, piece or build.
 - You can fly out to them and stand on them.
 
 **Tides**
-- The whole ocean rises and falls with the moon, so shorelines walk in and out.
-- Spring tides at full and new moon swing further both ways.
-- Rivers and swamps feel only part of the tide, so they never drain dry.
-- The tide is worked out from world time, so every player sees the same water.
+- The whole ocean rises and falls with the moon, so shorelines move in and out.
+- Full and new moons bring bigger tides.
+- Rivers and swamps only feel part of the tide, so they never drain dry.
+- Tides hold still under ice.
 
 **Currents**
 - Rivers push downhill: drift downstream, work your way up.
-- Open-ocean gyres: slow, wide currents worth riding on long voyages.
-- River mouths breathe with the tide: outbound on the ebb, inbound on the flood.
-- Ships, swimmers and creatures all feel the drift. Sailing with the current and the wind is fast; fighting both is slow.
-- Admins can exempt themselves from currents.
+- Slow, wide ocean currents worth riding on long voyages.
+- River mouths flow out on the ebb and in on the flood.
+- Ships, swimmers and creatures all feel the drift. Sailing with current and wind is fast; fighting both is slow.
 
 **Whirlpools**
-- In storms, funnels can open in deep water: a visible swirl, an inward pull, and a core that drags ships down and
-  grinds their hulls. Sail wide.
+- In storms, whirlpools can open in deep water. They pull ships in and grind their hulls. Sail wide.
 
 **Diving**
-- The water surface is no longer a wall: swim down. Stamina drains while you are under, and sea creatures can follow.
+- Swim down below the surface. Stamina drains while you are under.
+- Creatures diving after you is now part of FiresMonsterOverhaul, not Galaxies.
 
-## Settings
+## How to use
 
-Everything is in the F8 config window (or `BepInEx\config\com.Fire.FiresValheimGalaxies.cfg`) under these groups:
+It all works on its own once installed. To change things, open the Fires config window (F1 > Config settings):
+moon size and month length, tide heights, current strength, whirlpool chance, diving, blood moons and more.
+Server settings apply to every player.
 
-| Group | What it sets |
-|---|---|
-| Galaxies - General | the master switch for the moon, tide and current systems |
-| Galaxies - Moon | size, distance, lunar month length, look (brightness, phase edge) |
-| Galaxies - Orbital A to D | each orbiting body: prefab, orbit size and shape, tilt, speed, scale |
-| Galaxies - Tides, Tides (Cycle), Tides (Range) | tides on/off, high and low water levels, tides per day |
-| Galaxies - Tidal Currents, Rivers, Open Ocean, Ships, Wind | current strengths, river detection, wind drag on ships |
-| Galaxies - Whirlpools | spawn chance, lifetime, size, pull and damage, which storms spawn them |
-| Galaxies - Diving | underwater movement and stamina |
-| Galaxies - Debug Visualization | live current arrows and orbit traces, for setting things up |
+Admins can turn currents off for themselves, and use `galaxies_whirl here | clear | status` to spawn, clear or
+check whirlpools.
 
-Server settings sync to every client.
+## Install
 
-## Console commands
+Install on every player's game and on the server (if you use one), with a mod manager or by copying the plugin
+folder into `BepInEx/plugins`.
 
-- `fires_moondiag`: a full report on the moon and the orbitals.
-- `galaxies_waterdiag`: every water surface near you and the tide check.
-- `galaxies_whirl here | clear | status`: spawn, clear or inspect whirlpools.
-
-## Requirements
+## Requires
 
 - BepInExPack Valheim
-- Fires Unified Core
-- Works with Fires Admin Terrain: when it is installed, Galaxies runs its sky and diving systems and leaves terrain and
-  water tools to Admin Terrain.
+- Fires Unified Core 0.2.1250 or newer
+
+## Good to know
+
+- Works with Fires Admin Terrain: with both installed, Galaxies runs the sky and diving and leaves terrain and water
+  tools to Admin Terrain.
+- Water looks (colour, foam, reflections) come from Fires Tossin Shade.
+- With Fires Advanced Player Movement installed, it handles the camera when your head goes underwater; Galaxies still
+  handles the camera on rolling ship swells.
+- On curved ring worlds, tides, currents and whirlpools switch themselves off; normal worlds are unchanged.

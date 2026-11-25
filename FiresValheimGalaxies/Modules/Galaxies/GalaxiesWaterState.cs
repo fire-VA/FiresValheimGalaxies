@@ -1,4 +1,3 @@
-using FiresCore.Services;
 using UnityEngine;
 
 namespace VerdantsAscent.Galaxies
@@ -13,7 +12,7 @@ namespace VerdantsAscent.Galaxies
     /// ocean baseline where no volume is loaded. Flow: <see cref="CurrentSystem"/> (ocean/tidal/
     /// river currents). Tide phase/velocity: <see cref="TideSystem"/>.
     /// </summary>
-    internal sealed class GalaxiesWaterState : IWaterStateProvider
+    internal sealed class GalaxiesWaterState   // 0.1.76: no interface (APM owns the contract); ApmWaterBridge registers its methods as delegates
     {
         private WaterVolume _volumeCache;
 

@@ -222,7 +222,7 @@ namespace VerdantsAscent.Galaxies
             System.EventHandler reshape = (_, __) =>
             {
                 TideRiverField.Clear();
-                FiresCore.Services.WaterState.SurfaceFieldVersion++;
+                ApmWaterBridge.BumpVersion();   // 0.1.76: APM WaterState.SurfaceFieldVersion, by name
             };
             TideShapingEnabled.SettingChanged += reshape;
             RiverTideFraction.SettingChanged += reshape;
